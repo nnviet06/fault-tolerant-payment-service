@@ -25,3 +25,6 @@ replay_pid*
 
 # Personal test/scratch files
 test-java/
+
+# Maven
+target/

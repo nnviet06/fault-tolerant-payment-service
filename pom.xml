@@ -3,13 +3,11 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.nnviet.wallet</groupId>
-  <artifactId>wallet-transaction-service</artifactId>
+  <groupId>com.nnviet.payment</groupId>
+  <artifactId>fault-tolerant-payment-service</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 
-  <name>wallet-transaction-service</name>
-  <!-- FIXME change it to the project's website -->
-  <url>http://www.example.com</url>
+  <name>fault-tolerant-payment-service</name>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,6 +15,9 @@
     <vertx.version>4.5.27</vertx.version>
     <mutiny.vertx.version>3.19.1</mutiny.vertx.version>
     <logback.version>1.5.32</logback.version>
+    <postgresql.version>42.7.5</postgresql.version>
+    <hikaricp.version>6.2.1</hikaricp.version>
+    <main.class>com.nnviet.payment.Main</main.class>
   </properties>
 
   <dependencyManagement>
@@ -39,89 +40,136 @@
   </dependencyManagement>
 
   <dependencies>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <!-- Optionally: parameterized tests support -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-params</artifactId>
-      <scope>test</scope>
-    </dependency>
-        <!-- Vert.x core với Mutiny binding (Uni/Multi API) -->
+    <!-- Vert.x core with Mutiny binding (Uni/Multi API) -->
     <dependency>
       <groupId>io.smallrye.reactive</groupId>
       <artifactId>smallrye-mutiny-vertx-core</artifactId>
       <version>${mutiny.vertx.version}</version>
     </dependency>
 
-    <!-- PostgreSQL reactive client (Mutiny) -->
+    <!-- Vert.x Web router with Mutiny binding -->
     <dependency>
       <groupId>io.smallrye.reactive</groupId>
-      <artifactId>smallrye-mutiny-vertx-pg-client</artifactId>
+      <artifactId>smallrye-mutiny-vertx-web</artifactId>
       <version>${mutiny.vertx.version}</version>
     </dependency>
 
-    <!-- Redis reactive client (Mutiny) -->
+    <!-- Redis client with Mutiny binding: idempotency fast-path cache only.
+         Correctness lives in Postgres; Redis is optional at runtime. -->
     <dependency>
       <groupId>io.smallrye.reactive</groupId>
       <artifactId>smallrye-mutiny-vertx-redis-client</artifactId>
       <version>${mutiny.vertx.version}</version>
     </dependency>
 
-    <!-- Logging: Logback implementation (kéo theo SLF4J API và logback-core) -->
+    <!-- DB access is deliberately blocking JDBC on worker threads (locked decision).
+         No reactive pg-client. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>${postgresql.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+      <version>${hikaricp.version}</version>
+    </dependency>
+
+    <!-- Logging: Logback implementation (brings SLF4J API and logback-core) -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>
     </dependency>
+
+    <!-- Tests -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
-      <plugins>
-        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
-        <plugin>
-          <artifactId>maven-clean-plugin</artifactId>
-          <version>3.4.0</version>
-        </plugin>
-        <!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
-        <plugin>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.13.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.3.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-jar-plugin</artifactId>
-          <version>3.4.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-install-plugin</artifactId>
-          <version>3.1.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.1.2</version>
-        </plugin>
-        <!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
-        <plugin>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.6.1</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+      <!-- Unit tests only (*Test). Torture scenarios are *TortureIT, run by failsafe
+           under the `torture` profile. -->
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.3.0</version>
+      </plugin>
+      <!-- Runnable fat jar: needed by `java -jar` and by the torture suite, which
+           launches/kills the service as a real OS process. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>${main.class}</mainClass>
+                </transformer>
+                <!-- Vert.x and SLF4J discover implementations via ServiceLoader -->
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
+
+  <profiles>
+    <!-- Torture suite: mvn -Ptorture verify (requires `docker compose up -d`).
+         Runs after `package` so the shaded jar exists for process-kill scenarios.
+         Report: target/torture-report.md -->
+    <profile>
+      <id>torture</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+              <includes>
+                <include>**/*TortureIT.java</include>
+              </includes>
+              <systemPropertyVariables>
+                <torture.jar>${project.build.directory}/${project.build.finalName}.jar</torture.jar>
+              </systemPropertyVariables>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

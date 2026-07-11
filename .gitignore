@@ -23,6 +23,13 @@
 hs_err_pid*
 replay_pid*
 
+# JetBrains IDEs
+.idea/
+**/.idea/
+*.iml
+*.iws
+*.ipr
+
 # Personal test/scratch files
 test-java/
 
@@ -31,3 +38,6 @@ target/
 
 # Claude Code project context - local only, never push
 CLAUDE.md
+
+
+

@@ -36,8 +36,8 @@ test-java/
 # Maven
 target/
 
-# Claude Code project context - local only, never push
+# Claude Code project context 
 CLAUDE.md
-
+.claude/
 
 

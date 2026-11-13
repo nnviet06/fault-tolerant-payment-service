@@ -1,5 +1,7 @@
 package com.nnviet.payment.ledger.workflow;
 
+import com.nnviet.payment.common.bench.PhaseTimings;
+import com.nnviet.payment.common.bench.PhaseTimings.Mark;
 import com.nnviet.payment.common.errors.ValidationException;
 import com.nnviet.payment.ledger.LedgerEntry;
 import com.nnviet.payment.ledger.task.AppendLedgerEntryTask;
@@ -46,6 +48,7 @@ public class TransferWorkflow {
             throw new ValidationException("cannot transfer to the same wallet");
         }
         Wallet from;
+        PhaseTimings.global().mark(Mark.ROW_START); // no-op unless BENCH_TIMING=true
         if (fromWalletId.compareTo(toWalletId) < 0) {
             from = wallets.lockById(conn, fromWalletId);
             wallets.lockById(conn, toWalletId);
@@ -53,6 +56,7 @@ public class TransferWorkflow {
             wallets.lockById(conn, toWalletId);
             from = wallets.lockById(conn, fromWalletId);
         }
+        PhaseTimings.global().mark(Mark.ROW_END);
         validateBalance.requireAvailable(from, amount);
         debit.debit(conn, fromWalletId, amount);
         credit.credit(conn, toWalletId, amount);

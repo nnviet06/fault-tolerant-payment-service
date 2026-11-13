@@ -1,0 +1,72 @@
+# E5-r3
+date: 2026-11-13T18:23:51Z
+git: 9cf8c0e (jar exp.jar; checked out: 9cf8c0e)
+config: clients=32 wallets=1000 BENCH_TIMING=true sampler=yes measureSec=60
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=60 cooldownSec=0 wallets=1000 timings=true
+started 2026-11-13T18:22:21.609307200Z
+seeded 1000 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T18:22:50.655908900Z
+MEASURE_END 2026-11-13T18:23:50.657811300Z
+clients=32 window=60.00s committed=75889 tps=1264.8 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":75894,"dropped":0,"windowSeconds":60.0052531,"phases":{"W_queue":{"mean_us":11038.2,"p50_us":8414.0,"p95_us":12870.7,"p99_us":54362.2,"max_us":1021945.6,"sum_ms":837736.3},"W_conn":{"mean_us":0.4,"p50_us":0.4,"p95_us":0.6,"p99_us":0.9,"max_us":101.5,"sum_ms":32.9},"W_row":{"mean_us":1809.0,"p50_us":1499.9,"p95_us":2797.3,"p99_us":8743.0,"max_us":505933.5,"sum_ms":137290.1},"W_lock":{"mean_us":0.1,"p50_us":0.1,"p95_us":0.1,"p99_us":0.1,"max_us":45.0,"sum_ms":6.1},"H_work":{"mean_us":2824.3,"p50_us":2737.5,"p95_us":3822.4,"p99_us":4637.7,"max_us":299163.8,"sum_ms":214346.8},"H_commit":{"mean_us":5295.1,"p50_us":3076.1,"p95_us":4549.3,"p99_us":50856.5,"max_us":838098.0,"sum_ms":401866.5},"H":{"mean_us":8119.4,"p50_us":5861.5,"p95_us":7946.0,"p99_us":53371.2,"max_us":839934.7,"sum_ms":616213.3}}}
+busy = tps x mean(H) = 1264.8 x 8119.4 us = 10.269
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 60.00 | 75889 | 1264.8 | 0 | none |
+
+finished 2026-11-13T18:23:50.805596200Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    5079 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ Client:ClientRead    | idle in transaction |        31095 | 39.9
+ LWLock:WALWrite      | active              |        25324 | 32.5
+ CPU/running          | active              |         7299 |  9.4
+ CPU/running          | idle in transaction |         4552 |  5.8
+ IO:WalSync           | active              |         4353 |  5.6
+ Client:ClientRead    | active              |         2628 |  3.4
+ Lock:transactionid   | active              |         1851 |  2.4
+ LWLock:WALWrite      | idle in transaction |          418 |  0.5
+ IO:WalWrite          | active              |          118 |  0.2
+ IO:DataFileExtend    | active              |           78 |  0.1
+ LWLock:BufferContent | active              |           26 |  0.0
+ Lock:extend          | active              |           25 |  0.0
+ IO:WalWrite          | idle in transaction |           21 |  0.0
+ IO:WalSync           | idle in transaction |           17 |  0.0
+ Lock:tuple           | active              |           13 |  0.0
+ LWLock:WALInsert     | active              |            9 |  0.0
+ IO:DataFileExtend    | idle in transaction |            6 |  0.0
+ LWLock:BufferContent | idle in transaction |            2 |  0.0
+ Timeout:SpinDelay    | active              |            2 |  0.0
+ IPC:XactGroupUpdate  | active              |            1 |  0.0
+ Lock:transactionid   | idle in transaction |            1 |  0.0
+ LWLock:WALInsert     | idle in transaction |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |        5.956 |                 3650 |        16 |     15.33
+

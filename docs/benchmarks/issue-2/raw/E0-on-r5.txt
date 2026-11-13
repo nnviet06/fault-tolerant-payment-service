@@ -1,0 +1,34 @@
+# E0-on-r5
+date: 2026-11-13T17:16:55Z
+git: 8aa6aa1 feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: clients=32 wallets=20 BENCH_TIMING=true sampler=no measureSec=60
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=60 cooldownSec=0 wallets=20 timings=true
+started 2026-11-13T17:15:41.070209700Z
+seeded 20 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T17:15:51.492137400Z
+MEASURE_END 2026-11-13T17:16:51.507939700Z
+clients=32 window=60.02s committed=13227 tps=220.4 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":13227,"dropped":0,"windowSeconds":60.0171184,"phases":{"W_queue":{"mean_us":69188.3,"p50_us":51391.4,"p95_us":67424.3,"p99_us":477859.4,"max_us":3770346.0,"sum_ms":915154.1},"W_conn":{"mean_us":1.1,"p50_us":0.3,"p95_us":3.8,"p99_us":7.4,"max_us":1193.1,"sum_ms":13.9},"W_row":{"mean_us":48295.6,"p50_us":19885.2,"p95_us":166683.6,"p99_us":331851.1,"max_us":7141807.3,"sum_ms":638805.4},"W_lock":{"mean_us":15194.5,"p50_us":10749.6,"p95_us":18422.8,"p99_us":104147.2,"max_us":2066667.6,"sum_ms":200977.7},"H_work":{"mean_us":1536.0,"p50_us":1439.3,"p95_us":2036.7,"p99_us":2737.7,"max_us":168261.6,"sum_ms":20317.0},"H_commit":{"mean_us":2959.8,"p50_us":1706.7,"p95_us":2302.2,"p99_us":26832.1,"max_us":872246.0,"sum_ms":39149.0},"H":{"mean_us":4495.8,"p50_us":3161.1,"p95_us":4275.6,"p99_us":29051.8,"max_us":875470.2,"sum_ms":59466.1}}}
+busy = tps x mean(H) = 220.4 x 4495.8 us = 0.991
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 60.02 | 13227 | 220.4 | 0 | none |
+
+finished 2026-11-13T17:16:54.697252800Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1

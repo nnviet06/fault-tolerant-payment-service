@@ -1,5 +1,7 @@
 package com.nnviet.payment.common.db;
 
+import com.nnviet.payment.common.bench.PhaseTimings;
+import com.nnviet.payment.common.bench.PhaseTimings.Mark;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.WorkerExecutor;
 
@@ -39,7 +41,11 @@ public class Tx {
     public <T> Uni<T> inTx(TxBlock<T> block) {
         // ordered=false: independent requests must not serialize behind each
         // other on the caller's context - row locks do the serializing.
-        return executor.executeBlocking(() -> runBlocking(block), false);
+        long submittedAt = PhaseTimings.global().now();
+        return executor.executeBlocking(() -> {
+            PhaseTimings.global().begin(submittedAt);
+            return runBlocking(block);
+        }, false);
     }
 
     /**
@@ -48,18 +54,28 @@ public class Tx {
      * tests.
      */
     public <T> T runBlocking(TxBlock<T> block) throws Exception {
-        try (Connection conn = dataSource.getConnection()) {
-            conn.setAutoCommit(false);
-            try {
-                T result = block.run(conn);
-                conn.commit();
-                return result;
-            } catch (Exception e) {
-                rollbackQuietly(conn);
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
+        PhaseTimings timings = PhaseTimings.global(); // no-op unless BENCH_TIMING=true
+        try {
+            timings.mark(Mark.CONN_START);
+            try (Connection conn = dataSource.getConnection()) {
+                timings.mark(Mark.CONN_END);
+                conn.setAutoCommit(false);
+                try {
+                    T result = block.run(conn);
+                    timings.mark(Mark.COMMIT_START);
+                    conn.commit();
+                    timings.mark(Mark.COMMIT_END);
+                    timings.recordIfComplete();
+                    return result;
+                } catch (Exception e) {
+                    rollbackQuietly(conn);
+                    throw e;
+                } finally {
+                    conn.setAutoCommit(true);
+                }
             }
+        } finally {
+            timings.clear();
         }
     }
 

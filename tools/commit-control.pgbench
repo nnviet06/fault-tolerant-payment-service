@@ -1,0 +1,20 @@
+-- Issue #2, experiment E4: parallel-commit control.
+-- Transfer-sized write transactions (5 single-row inserts + COMMIT) with NO
+-- shared lock between clients: what commit rate can this Postgres + disk
+-- sustain when commits are free to overlap (group commit)?
+--
+-- Setup / run / teardown (scratch table, never part of schema.sql):
+--   docker compose exec -T postgres psql -U user123 -d userdb -c \
+--     "CREATE TABLE IF NOT EXISTS bench_commit_control (id bigserial PRIMARY KEY, v bigint NOT NULL)"
+--   docker compose cp tools/commit-control.pgbench postgres:/tmp/commit-control.pgbench
+--   docker compose exec -T postgres pgbench -n -c 16 -j 4 -T 30 \
+--     -f /tmp/commit-control.pgbench -U user123 userdb
+--   docker compose exec -T postgres psql -U user123 -d userdb -c "DROP TABLE bench_commit_control"
+\set v random(1, 1000000000)
+BEGIN;
+INSERT INTO bench_commit_control (v) VALUES (:v);
+INSERT INTO bench_commit_control (v) VALUES (:v);
+INSERT INTO bench_commit_control (v) VALUES (:v);
+INSERT INTO bench_commit_control (v) VALUES (:v);
+INSERT INTO bench_commit_control (v) VALUES (:v);
+END;

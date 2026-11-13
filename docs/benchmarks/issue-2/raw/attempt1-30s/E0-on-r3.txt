@@ -1,0 +1,27 @@
+# E0-on-r3
+date: 2026-11-13T16:50:20Z
+git: 2867514 feat/2-benchmark-transfer-bottleneck (dirty files: 11)
+config: clients=32 wallets=20 BENCH_TIMING=true sampler=no
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=30 cooldownSec=0 wallets=20 timings=true
+started 2026-11-13T16:49:37.523492900Z
+seeded 20 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T16:49:47.952637100Z
+MEASURE_END 2026-11-13T16:50:17.958924800Z
+clients=32 window=30.01s committed=6007 tps=200.2 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":6007,"dropped":0,"windowSeconds":30.0078656,"phases":{"W_queue":{"mean_us":80339.0,"p50_us":56222.2,"p95_us":193007.7,"p99_us":479333.1,"max_us":1966966.2,"sum_ms":482596.1},"W_conn":{"mean_us":2.9,"p50_us":2.0,"p95_us":8.0,"p99_us":15.6,"max_us":111.3,"sum_ms":17.3},"W_row":{"mean_us":55644.8,"p50_us":21151.8,"p95_us":219755.2,"p99_us":495287.7,"max_us":2583541.6,"sum_ms":334258.0},"W_lock":{"mean_us":16708.3,"p50_us":11708.0,"p95_us":34314.2,"p99_us":117182.5,"max_us":903769.0,"sum_ms":100366.5},"H_work":{"mean_us":1930.5,"p50_us":1634.8,"p95_us":2954.2,"p99_us":4657.2,"max_us":209905.5,"sum_ms":11596.7},"H_commit":{"mean_us":3015.5,"p50_us":1749.7,"p95_us":4137.0,"p99_us":25572.7,"max_us":312971.8,"sum_ms":18113.9},"H":{"mean_us":4946.0,"p50_us":3422.3,"p95_us":7560.1,"p99_us":28087.2,"max_us":321946.6,"sum_ms":29710.6}}}
+busy = tps x mean(H) = 200.2 x 4946.0 us = 0.990
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 30.01 | 6007 | 200.2 | 0 | none |
+
+finished 2026-11-13T16:50:18.274417400Z

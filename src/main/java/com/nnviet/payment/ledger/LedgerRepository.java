@@ -1,6 +1,8 @@
 package com.nnviet.payment.ledger;
 
 import com.nnviet.payment.common.Hashes;
+import com.nnviet.payment.common.bench.PhaseTimings;
+import com.nnviet.payment.common.bench.PhaseTimings.Mark;
 import io.vertx.core.json.JsonObject;
 
 import java.sql.Connection;
@@ -35,7 +37,9 @@ public class LedgerRepository {
     public LedgerEntry append(Connection conn, String entryType, UUID debitWalletId,
                               UUID creditWalletId, long amount, UUID holdId,
                               String idempotencyKey) throws SQLException {
+        PhaseTimings.global().mark(Mark.LOCK_START); // no-op unless BENCH_TIMING=true
         acquireChainLock(conn);
+        PhaseTimings.global().mark(Mark.LOCK_END);
         Tail tail = readTail(conn);
         long seq = tail.seq() + 1;
         long createdAtMs = System.currentTimeMillis();

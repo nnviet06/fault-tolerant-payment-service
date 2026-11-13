@@ -298,3 +298,59 @@ java -cp target/bench LoadDriver http://localhost:8080 16,32,64 10 30 10 20
    reconstruction from the append-only ledger, are among the strongest scenarios
    and are not reflected in the three bullets at all.
 ```
+
+---
+
+## Phase D — Where is the throughput ceiling? (issue #2)
+
+**Question.** Why do transfers stop at roughly 250 per second, and would
+splitting the ledger chain (#3) help?
+
+**Method.** Timers were added to each step of a transfer (they only run when
+`BENCH_TIMING=true`). Each experiment ran 5 times for 60 s, with experiments
+alternating so that every one saw the same machine conditions. Every run had
+0 errors. Raw data: `docs/benchmarks/issue-2/raw/`. Tables:
+`python tools/bench-issue2-summary.py docs/benchmarks/issue-2/raw`.
+
+| Experiment | Transfers/sec (median of 5) |
+|---|---|
+| Baseline (ledger lock on) | 268 |
+| Same, but disk sync at commit turned off | 499 |
+| Ledger lock removed (branch `exp/2-no-chain-lock`, not merged) | **1205** (4.5×) |
+| Raw database commits, no lock, no app (disk capacity check) | ~3990 |
+
+**Findings.**
+
+1. **The ledger lock is the ceiling.** It is busy about 99% of the time, and
+   every transfer waits in line for it.
+2. **The lock is held while the disk sync runs.** Each commit waits for the disk
+   while still holding the lock, so transfers can only commit one at a time.
+   The disk itself is not the limit: without the lock it handles about 3990
+   commits/sec, because the database can then batch many commits into one sync.
+3. **Occasional slow disk syncs cause the run-to-run noise.** A sync that
+   normally takes ~2 ms sometimes takes ~25 ms. Because the lock is held during
+   the sync, the whole system waits. Turning disk sync off cut the run-to-run
+   variation from 20% to 4%.
+4. **Removing the lock gives 4.5×. That is a ceiling, not a forecast for #3.**
+   That experiment dropped the hash chain completely. Splitting the chain (#3)
+   keeps some ordering work, so its real gain lies **between 268 and 1205**.
+   Only building #3 and measuring it will tell where.
+5. **A second lever exists.** Even with disk sync off, the lock still caps out
+   (~500/sec) because of the app↔database round trips made while holding it.
+   Doing less work while holding the lock would help independently of #3.
+
+**Versus the earlier 235 tps.** At the same load, the new baseline without
+timers ranges **201–250 tps** (median 242). The earlier 235 was a single 30 s
+run, and it falls inside this range. The difference is the disk-sync noise
+above; no code change is involved. Quote throughput as a range (~200–250 tps on
+this laptop), not a single number.
+
+**Limits.**
+
+- The timers cost about 6%. That is smaller than the noise, so it is not proven
+  to be negligible.
+- All results come from one laptop (Docker on WSL2). Disk-sync behaviour there is
+  machine-specific.
+- The experiment that ran first in each round looked faster. Small differences
+  (under ~20%) between experiments should not be over-read.
+- Checkpoints and autovacuum were checked and ruled out as the noise source.

@@ -1,0 +1,24 @@
+# E0-off-r3
+date: 2026-11-13T16:49:34Z
+git: 2867514 feat/2-benchmark-transfer-bottleneck (dirty files: 11)
+config: clients=32 wallets=20 BENCH_TIMING=false sampler=no
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=30 cooldownSec=0 wallets=20 timings=false
+started 2026-11-13T16:48:53.092955100Z
+seeded 20 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T16:49:03.501808300Z
+MEASURE_END 2026-11-13T16:49:33.507739300Z
+clients=32 window=30.01s committed=9232 tps=307.7 non201=0 [none]
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 30.01 | 9232 | 307.7 | 0 | none |
+
+finished 2026-11-13T16:49:33.611430400Z

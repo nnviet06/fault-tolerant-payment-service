@@ -123,7 +123,10 @@ run_pgbench() {
     local pre; pre="$(show_sync)"
     psql_db -q -c "DROP TABLE IF EXISTS bench_commit_control; CREATE TABLE bench_commit_control (id bigserial PRIMARY KEY, v bigint NOT NULL)"
     docker compose -f "$ROOT/docker-compose.yml" cp "$ROOT/tools/commit-control.pgbench" postgres:/tmp/commit-control.pgbench >/dev/null
-    docker compose -f "$ROOT/docker-compose.yml" exec -T postgres \
+    # MSYS2_ARG_CONV_EXCL: stop Git Bash rewriting the in-container path
+    # /tmp/... into a Windows path before docker sees it (other args, like
+    # the compose file path, still need the conversion)
+    MSYS2_ARG_CONV_EXCL="/tmp/" docker compose -f "$ROOT/docker-compose.yml" exec -T postgres \
         pgbench -n -c 16 -j 4 -T "$MEASURE_SEC" -f /tmp/commit-control.pgbench -U user123 userdb > "$LOGDIR/$label.pgbench.txt" 2>&1 &
     local pb_pid=$!
     sleep 1
@@ -134,6 +137,7 @@ run_pgbench() {
     {
         echo "# $label"
         echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "git: $(git -C "$ROOT" rev-parse --short HEAD) $(git -C "$ROOT" rev-parse --abbrev-ref HEAD) (modified tracked files: $(git -C "$ROOT" status --porcelain --untracked-files=no | wc -l | tr -d ' '))"
         echo "config: pgbench -c 16 -j 4 -T $MEASURE_SEC tools/commit-control.pgbench (5 inserts + COMMIT, no shared lock)"
         echo "synchronous_commit before=$pre after=$post"
         echo

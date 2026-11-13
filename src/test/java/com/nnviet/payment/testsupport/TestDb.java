@@ -10,6 +10,10 @@ import java.sql.Statement;
 /**
  * Shared JDBC plumbing for DB-backed tests. Talks to the docker-compose
  * Postgres; tests calling available() first skip (not fail) when it is down.
+ *
+ * With REQUIRE_DB=true (set by CI) a missing Postgres or Redis is an error,
+ * not a skip: otherwise a broken CI database would turn every DB-backed test
+ * into a silent skip and the build would pass while testing nothing.
  */
 public final class TestDb {
 
@@ -27,10 +31,19 @@ public final class TestDb {
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
+    /** True when REQUIRE_DB=true: missing infrastructure must fail, not skip. */
+    public static boolean required() {
+        return "true".equalsIgnoreCase(System.getenv("REQUIRE_DB"));
+    }
+
     public static boolean available() {
         try (Connection ignored = open()) {
             return true;
         } catch (SQLException e) {
+            if (required()) {
+                throw new IllegalStateException(
+                        "REQUIRE_DB=true but Postgres is unreachable at " + URL, e);
+            }
             return false;
         }
     }

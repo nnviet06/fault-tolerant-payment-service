@@ -33,7 +33,7 @@ class KillAfterPublishTortureIT {
         TortureHarness.requireInfrastructure();
         List<String> failures = new ArrayList<>();
         LinkedHashMap<String, String> metrics = new LinkedHashMap<>();
-        Path sink = Path.of("target", "torture-sink", "kill-after-publish.jsonl");
+        Path sink = TortureHarness.sinkFile("kill-after-publish.jsonl");
         Files.createDirectories(sink.getParent());
         Files.deleteIfExists(sink);
         try {

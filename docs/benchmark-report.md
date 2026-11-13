@@ -301,56 +301,61 @@ java -cp target/bench LoadDriver http://localhost:8080 16,32,64 10 30 10 20
 
 ---
 
-## Phase D — Where is the throughput ceiling? (issue #2)
+## Phase D — Where is the throughput ceiling? (#2)
 
-**Question.** Why do transfers stop at roughly 250 per second, and would
-splitting the ledger chain (#3) help?
+**Problem.** Transfers stopped at about 250 per second.
 
-**Method.** Timers were added to each step of a transfer (they only run when
-`BENCH_TIMING=true`). Each experiment ran 5 times for 60 s, with experiments
-alternating so that every one saw the same machine conditions. Every run had
-0 errors. Raw data: `docs/benchmarks/issue-2/raw/`. Tables:
-`python tools/bench-issue2-summary.py docs/benchmarks/issue-2/raw`.
+**Method.** Each step of a transfer was timed. Each test ran 5 times for 60 s,
+with tests alternating so they all saw the same machine conditions. Spread
+means (fastest run − slowest run) / median run. Raw data:
+`docs/benchmarks/issue-2/raw/`.
 
-| Experiment | Transfers/sec (median of 5) |
+| Test | Transfers/sec (median) |
 |---|---|
-| Baseline (ledger lock on) | 268 |
-| Same, but disk sync at commit turned off | 499 |
-| Ledger lock removed (branch `exp/2-no-chain-lock`, not merged) | **1205** (4.5×) |
-| Raw database commits, no lock, no app (disk capacity check) | ~3990 |
+| Baseline | 268 |
+| Disk sync at commit turned off | 499 |
+| Ledger lock removed (test branch, not merged) | 1205 |
+| Database alone, no lock | ~3990 |
 
 **Findings.**
+- The global ledger lock was the limit. It stayed held while each commit
+  waited for the disk, so commits ran one at a time.
+- The disk itself was not the limit. Without the lock it handled ~3990
+  commits/sec.
+- Occasional slow disk syncs (~25 ms instead of ~2 ms) stalled everything.
+  They caused the 20% spread between runs, which fell to 4% with disk sync off.
+- 1205 is a ceiling for #4, not a forecast, because that test dropped the hash
+  chain entirely.
 
-1. **The ledger lock is the ceiling.** It is busy about 99% of the time, and
-   every transfer waits in line for it.
-2. **The lock is held while the disk sync runs.** Each commit waits for the disk
-   while still holding the lock, so transfers can only commit one at a time.
-   The disk itself is not the limit: without the lock it handles about 3990
-   commits/sec, because the database can then batch many commits into one sync.
-3. **Occasional slow disk syncs cause the run-to-run noise.** A sync that
-   normally takes ~2 ms sometimes takes ~25 ms. Because the lock is held during
-   the sync, the whole system waits. Turning disk sync off cut the run-to-run
-   variation from 20% to 4%.
-4. **Removing the lock gives 4.5×. That is a ceiling, not a forecast for #3.**
-   That experiment dropped the hash chain completely. Splitting the chain (#3)
-   keeps some ordering work, so its real gain lies **between 268 and 1205**.
-   Only building #3 and measuring it will tell where.
-5. **A second lever exists.** Even with disk sync off, the lock still caps out
-   (~500/sec) because of the app↔database round trips made while holding it.
-   Doing less work while holding the lock would help independently of #3.
+**The older 235 tps figure** came from a single 30 s run, and it falls inside
+today's 201–250 range. Quote throughput as a range.
 
-**Versus the earlier 235 tps.** At the same load, the new baseline without
-timers ranges **201–250 tps** (median 242). The earlier 235 was a single 30 s
-run, and it falls inside this range. The difference is the disk-sync noise
-above; no code change is involved. Quote throughput as a range (~200–250 tps on
-this laptop), not a single number.
+**Limits.** All results come from one laptop. The timers cost ~6%, which is
+within noise but not proven negligible.
 
-**Limits.**
+---
 
-- The timers cost about 6%. That is smaller than the noise, so it is not proven
-  to be negligible.
-- All results come from one laptop (Docker on WSL2). Disk-sync behaviour there is
-  machine-specific.
-- The experiment that ran first in each round looked faster. Small differences
-  (under ~20%) between experiments should not be over-read.
-- Checkpoints and autovacuum were checked and ruled out as the noise source.
+## Phase E — Per-wallet hash chains (#4)
+
+**Problem.** Measure what #4's per-wallet hash chains gain over the global
+lock.
+
+**Method.** Same as Phase D. The old and new versions alternated in the same
+session. Raw data: `docs/benchmarks/issue-4/raw/`.
+
+| Wallets | Before (tps) | After (tps) | Gain | Spread before / after |
+|---|---|---|---|---|
+| 1000 | 232 | 939 | 4.1× | 53% / 11% |
+| 20 | 228 | 379 | 1.7× | 17% / 25% |
+
+**Findings.**
+- With many wallets, transfers on different wallets now commit in parallel.
+- With few wallets the gain is smaller, because transfers that share a wallet
+  still wait for each other.
+- The new limit is the connection pool and round trips to the database.
+- The slowest commits got slower (99th percentile went from ~28 ms to
+  ~60–77 ms). End-to-end latency was not measured.
+
+**Notes.** This session's baseline was 232 tps, compared with 268 in Phase D,
+so comparing against Phase D's 1205 is only a rough reference. The spread
+numbers do not show that #4 reduces noise.

@@ -145,26 +145,26 @@ One laptop (i7-11800H, 8 cores) running service, Postgres, and Redis. Details:
 
 | What | Result | Condition |
 |---|---|---|
-| Committed transfers | **235 tps, 0 errors** | 32 clients, 30 s window |
+| Committed transfers | **~940 tps, 0 errors** | 32 clients, 1000 wallets (~380 tps with 20 wallets) |
 | Double-spend race | **0 violations** | 100 concurrent withdrawals |
 | Pending event after crash | **published 30.5 ms after restart** | median of 20, bounded by the 250 ms relay poll |
 
-Throughput stops growing past 32 clients: every ledger append takes one global
-advisory lock to keep the hash chain in order. That ceiling is what Milestone 1
-goes after.
+Before #4, one global ledger lock capped throughput at ~230–270 tps (found in
+#2). #4 gave each wallet its own hash chain. The next limit is the connection
+pool. Details: [benchmark-report.md](docs/benchmark-report.md), Phases D–E.
 
 ## Roadmap
 
 ```mermaid
 flowchart LR
-    B["Baseline<br/>9/9 torture"]:::done --> CI["CI on every PR<br/>(#1)"] --> BM["Find the bottleneck<br/>(#2)"] --> SH["Shard the hash chain"]
+    B["Baseline<br/>9/9 torture"]:::done --> CI["CI on every PR<br/>(#1)"] --> BM["Find the bottleneck<br/>(#2)"]:::done --> SH["Per-wallet hash chains<br/>(#4)"]:::done
     B --> RH["Harden outbox relay"] --> K["Kafka behind<br/>EventPublisher"]
     classDef done fill:#2da44e,color:#fff,stroke:#2da44e
 ```
 
 | Milestone | Goal | Status |
 |---|---|---|
-| 1. Prove the ceiling, then remove it | CI runs all 9 scenarios; time each step of a transfer; shard the chain only if the advisory lock is confirmed as the bottleneck | [#1](https://github.com/nnviet06/fault-tolerant-payment-service/issues/1), [#2](https://github.com/nnviet06/fault-tolerant-payment-service/issues/2) open |
+| 1. Prove the ceiling, then remove it | CI runs all 9 scenarios; time each step of a transfer; shard the chain only if the advisory lock is confirmed as the bottleneck | [#2](https://github.com/nnviet06/fault-tolerant-payment-service/issues/2) and [#4](https://github.com/nnviet06/fault-tolerant-payment-service/issues/4) done; [#1](https://github.com/nnviet06/fault-tolerant-payment-service/issues/1) open |
 | 2. Harden the outbox relay | count failed attempts, dead-letter a poison event, stop holding the txn during publish, `422` on amount overflow | planned |
 | 3. Real broker | Kafka adapter for `EventPublisher`, dedup proven against it | planned |
 

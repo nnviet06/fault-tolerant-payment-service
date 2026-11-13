@@ -57,8 +57,15 @@ wait_for_line() { # $1 = pattern, $2 = file, $3 = pid that must still be alive
     done
 }
 
+# RESET_MODE=drop: drop the tables instead of truncating them, so the jar
+# about to start creates ITS schema.sql layout. Needed when interleaving jars
+# whose schemas differ (e.g. main vs per-wallet chains, #4).
 reset_stores() {
-    psql_db -q -c "TRUNCATE idempotency_keys, outbox, ledger_entries, holds, wallets CASCADE" >/dev/null
+    if [ "${RESET_MODE:-truncate}" = "drop" ]; then
+        psql_db -q -c "DROP TABLE IF EXISTS idempotency_keys, outbox, ledger_entries, holds, wallets CASCADE" >/dev/null
+    else
+        psql_db -q -c "TRUNCATE idempotency_keys, outbox, ledger_entries, holds, wallets CASCADE" >/dev/null
+    fi
     docker compose -f "$ROOT/docker-compose.yml" exec -T redis redis-cli FLUSHALL >/dev/null
 }
 

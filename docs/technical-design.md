@@ -22,7 +22,7 @@ proven by a named torture scenario (`mvn -Ptorture verify` →
 | Crash between DB commit and event publish | Transactional outbox: event row inserted on the same connection/transaction as the ledger entry | `kill-after-commit-before-publish` |
 | Crash between event publish and mark-as-sent | At-least-once relay (unmarked rows republish) + consumer dedup on `event_id` | `kill-after-publish-before-mark` |
 | Hold committed and expired at the same time | Single compare-and-set: `UPDATE holds SET status=? WHERE id=? AND status='ACTIVE'` — exactly one winner | `commit-vs-expiry-race` |
-| Out-of-band tampering with recorded history | SHA-256 hash chain over ledger rows; `GET /ledger/verify` recomputes every link | `tamper-evidence` |
+| Out-of-band tampering with recorded history | Per-wallet SHA-256 hash chains; `GET /ledger/verify` checks every link | `tamper-evidence` |
 | Silent drift between ledger and balances | Balances reproducible from the append-only ledger alone | `ledger-replay-audit` |
 | Application bug violating money invariants | Schema `CHECK` constraints make invalid states unrepresentable (commit aborts) | `DebitCreditTaskTest` |
 
@@ -55,15 +55,13 @@ the codebase.
   `balance >= held_amount`. `available = balance − held_amount` is computed,
   never stored. `held_amount` is denormalized from holds but only mutated in
   the same transaction under the same row lock, so it cannot drift.
+  `chain_seq`/`chain_head` store the latest link of the wallet's hash chain.
 - **ledger_entries** — append-only; the application never issues UPDATE or
   DELETE against it. One row = one balanced movement: `debit_wallet_id` and
   `credit_wallet_id` on the same row (NULL side = external world, never both
-  NULL). `seq BIGINT PK` is assigned `max(seq)+1` under an advisory lock —
-  gap-free, unlike a sequence, because a rollback must not leave holes in the
-  chain. `idempotency_key` is UNIQUE as a second, independent duplicate
-  defense. `created_at_ms BIGINT` is app-assigned epoch millis so hash
-  recomputation is byte-deterministic. `prev_hash`/`entry_hash` form the
-  chain.
+  NULL, never the same wallet twice). Each wallet side also stores the row's
+  link in that wallet's hash chain. `seq` is only a row id. `idempotency_key`
+  is UNIQUE as a second, independent duplicate defense.
 - **holds** — the one deliberately mutable money table (a reservation is
   state, not history): `status` in ACTIVE/COMMITTED/ROLLED_BACK/EXPIRED,
   `expires_at TIMESTAMPTZ`. All expiry decisions (insert TTL, commit guard,
@@ -165,19 +163,27 @@ changes emit outbox events.
 
 ## Hash chain (tamper evidence)
 
-`entry_hash = SHA-256(seq | entry_type | debit | credit | amount | hold_id |
-idempotency_key | created_at_ms | prev_hash)`; genesis `prev_hash` is 64
-zeros. Editing any hashed column breaks recomputation at that seq.
-`GET /ledger/verify` walks the whole chain and reports the first broken seq.
+Every wallet has its own hash chain. Each ledger row links to the previous row
+of every wallet it touches, so a transfer sits in two chains. Changing any
+recorded field breaks those chains, and `GET /ledger/verify` points at the row.
 
-Appends are serialized by `pg_advisory_xact_lock` (transaction-scoped, taken
-just before reading the tail). **Honest tradeoff:** a global chain has a
-global append point — ledger writes serialize at the tail. Acceptable at this
-scale; the scaling path (per-wallet chains, periodic signed checkpoints) is a
-documented follow-up, not built. Scope note: the chain proves *tamper
-evidence* (silent edits are detectable), not tamper *proofing* — an attacker
-who can rewrite every subsequent hash defeats it; countering that requires
-external hash anchoring, which is out of scope.
+The wallet row lock that already prevents double-spend also keeps each chain
+in order, so no global lock is needed. Transfers on different wallets commit
+in parallel; transfers that share a wallet still wait for each other.
+
+Each wallet row stores the latest link of its chain. An update to it only
+succeeds if no other transaction has moved it first. That check, not the
+indexes, stops two rows from taking the same place in a chain.
+
+Before #4 there was one global chain behind one lock. #2 showed that this lock
+was the throughput limit (benchmark-report, Phases D–E).
+
+**Limits.**
+- Deleting a wallet's newest rows is caught only if the wallet row is left
+  alone. Someone with full database access can hide the deletion.
+- Entries are ordered per wallet, not globally.
+- This gives tamper evidence, not tamper proofing. Keeping proofs outside the
+  database is a separate follow-up.
 
 ## Chaos points (test-only)
 
@@ -198,7 +204,7 @@ demand instead of being timing luck.
 | `POST /holds` | required | `ttlSeconds` 1..86400 |
 | `POST /holds/:id/commit`, `/holds/:id/rollback` | required | 409 when the hold is not active |
 | `GET /ledger/entries?walletId=&limit=` | — | audit listing |
-| `GET /ledger/verify` | — | full chain walk |
+| `GET /ledger/verify` | — | checks every wallet's chain |
 | `GET /health` | — | DB down → 503; Redis down → reported, still 200 |
 
 Errors are `{"error":{"code","message"}}`; domain failures are typed

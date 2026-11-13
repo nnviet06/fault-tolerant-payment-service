@@ -17,7 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tamper evidence: a financial field is edited directly in SQL, bypassing the
- * application entirely. The hash chain must detect it at the exact seq.
+ * application entirely. The hash chain must detect it at the exact row.
+ * seq is a row id from an identity column (not reset by the harness's
+ * TRUNCATE), so the target is located as "the 3rd entry", not a literal seq.
  */
 class TamperEvidenceTortureIT {
 
@@ -41,19 +43,22 @@ class TamperEvidenceTortureIT {
             check(failures, Boolean.TRUE.equals(before.getBoolean("valid")),
                     "chain must verify before the attack");
 
-            // the attack: +1 minor unit on entry seq 3, straight through SQL
+            // the attack: +1 minor unit on the 3rd entry, straight through SQL
+            long target = TortureHarness.queryLong(
+                    "SELECT seq FROM ledger_entries ORDER BY seq OFFSET 2 LIMIT 1");
             TortureHarness.executeSql(
-                    "UPDATE ledger_entries SET amount = amount + 1 WHERE seq = 3");
+                    "UPDATE ledger_entries SET amount = amount + 1 WHERE seq = " + target);
 
             JsonObject after = TortureHarness.get(PORT, "/ledger/verify").json();
-            metrics.put("tampered seq", "3");
+            metrics.put("tampered seq (3rd entry)", String.valueOf(target));
             metrics.put("chain valid after tampering", String.valueOf(after.getBoolean("valid")));
             metrics.put("first broken seq reported", String.valueOf(after.getLong("firstBrokenSeq")));
             metrics.put("reason reported", String.valueOf(after.getString("reason")));
             check(failures, Boolean.FALSE.equals(after.getBoolean("valid")),
                     "tampering must invalidate the chain");
-            check(failures, Long.valueOf(3L).equals(after.getLong("firstBrokenSeq")),
-                    "detection must point at seq 3, got " + after.getLong("firstBrokenSeq"));
+            check(failures, Long.valueOf(target).equals(after.getLong("firstBrokenSeq")),
+                    "detection must point at seq " + target + ", got "
+                            + after.getLong("firstBrokenSeq"));
         } catch (Exception e) {
             e.printStackTrace();
             failures.add("scenario error: " + e);
@@ -61,10 +66,10 @@ class TamperEvidenceTortureIT {
             TortureReport.record(new TortureReport.Scenario(
                     "tamper-evidence",
                     "out-of-band mutation of stored ledger data (DBA-level attack)",
-                    "SHA-256 hash chain over the financial columns; "
+                    "per-wallet SHA-256 hash chains over the financial columns; "
                             + "full recompute via GET /ledger/verify",
                     "5 deposits, then UPDATE ledger_entries SET amount = amount + 1 "
-                            + "WHERE seq = 3 via direct SQL",
+                            + "on the 3rd entry via direct SQL",
                     failures.isEmpty(), metrics, String.join("; ", failures)));
         }
         assertTrue(failures.isEmpty(), String.join("; ", failures));

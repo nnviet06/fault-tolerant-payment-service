@@ -1,5 +1,6 @@
 package com.nnviet.payment;
 
+import com.nnviet.payment.common.bench.PhaseTimings;
 import com.nnviet.payment.common.db.Tx;
 import com.nnviet.payment.common.errors.ErrorMapper;
 import com.nnviet.payment.common.idempotency.IdempotencyCache;
@@ -129,6 +130,7 @@ public class MainVerticle extends AbstractVerticle {
         walletHandler.register(router);
         ledgerHandler.register(router);
         router.get("/health").handler(ctx -> health(ctx, tx, redis));
+        registerBenchRoutes(router);
 
         return vertx.createHttpServer()
                 .requestHandler(router::handle)
@@ -139,6 +141,21 @@ public class MainVerticle extends AbstractVerticle {
                     log.info("payment service listening on port {}", config.httpPort());
                 })
                 .replaceWithVoid();
+    }
+
+    /** Issue #2 measurement endpoints; not registered at all unless BENCH_TIMING=true. */
+    private void registerBenchRoutes(Router router) {
+        PhaseTimings timings = PhaseTimings.global();
+        if (!timings.enabled()) {
+            return;
+        }
+        router.get("/debug/timings").handler(ctx ->
+                Web.respondJson(ctx, 200, timings.snapshot()));
+        router.post("/debug/timings/reset").handler(ctx -> {
+            timings.reset();
+            Web.respondJson(ctx, 200, new JsonObject().put("reset", true));
+        });
+        log.warn("BENCH_TIMING=true: phase timings enabled, /debug/timings exposed");
     }
 
     /** DB down is fatal (503); Redis down is reported but non-fatal - it is only a cache. */

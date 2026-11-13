@@ -37,17 +37,22 @@ public class LedgerRepository {
     public LedgerEntry append(Connection conn, String entryType, UUID debitWalletId,
                               UUID creditWalletId, long amount, UUID holdId,
                               String idempotencyKey) throws SQLException {
-        PhaseTimings.global().mark(Mark.LOCK_START); // no-op unless BENCH_TIMING=true
-        acquireChainLock(conn);
+        // EXPERIMENT E5 (branch exp/2-no-chain-lock, never merged - issue #2):
+        // no global chain lock and no chain link. seq is the PRIMARY KEY, so
+        // without the lock concurrent max(seq)+1 reads would collide; seq comes
+        // from a sequence instead and prev_hash is empty. /ledger/verify
+        // reports a broken chain on this branch by design.
+        // LOCK marks stay (zero-length) so H still means "append start -> commit".
+        PhaseTimings.global().mark(Mark.LOCK_START);
         PhaseTimings.global().mark(Mark.LOCK_END);
-        Tail tail = readTail(conn);
-        long seq = tail.seq() + 1;
+        long seq = nextSeqE5(conn);
+        String prevHash = "";
         long createdAtMs = System.currentTimeMillis();
         String entryHash = Hashes.sha256Hex(canonical(
                 seq, entryType, debitWalletId, creditWalletId, amount,
-                holdId, idempotencyKey, createdAtMs, tail.hash()));
+                holdId, idempotencyKey, createdAtMs, prevHash));
         LedgerEntry entry = new LedgerEntry(seq, entryType, debitWalletId, creditWalletId,
-                amount, holdId, idempotencyKey, createdAtMs, tail.hash(), entryHash);
+                amount, holdId, idempotencyKey, createdAtMs, prevHash, entryHash);
         insert(conn, entry);
         return entry;
     }
@@ -129,6 +134,14 @@ public class LedgerRepository {
                 json.put("reason", reason);
             }
             return json;
+        }
+    }
+
+    private static long nextSeqE5(Connection conn) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT nextval('ledger_seq_e5')");
+             ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            return rs.getLong(1);
         }
     }
 

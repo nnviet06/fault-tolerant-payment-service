@@ -83,3 +83,7 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     response_body   JSONB,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- EXPERIMENT E5 only (branch exp/2-no-chain-lock, never merged): seq source
+-- that replaces the advisory-locked max(seq)+1. Drop after the experiment.
+CREATE SEQUENCE IF NOT EXISTS ledger_seq_e5;

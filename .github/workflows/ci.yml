@@ -1,0 +1,75 @@
+# Issue #1: every push and every PR into main runs the unit tests and all 9
+# torture scenarios against the same Postgres + Redis the project uses locally
+# (docker-compose.yml). REQUIRE_DB=true turns a missing database or Redis into
+# a failure, so the build can never pass by silently skipping tests.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# a newer push to the same branch cancels the older, now-irrelevant run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Start Postgres and Redis (docker-compose.yml)
+        run: docker compose up -d postgres redis
+
+      - name: Wait until Postgres and Redis answer
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T postgres pg_isready -U user123 -d userdb \
+               && docker compose exec -T redis redis-cli ping | grep -q PONG; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres/Redis not ready after 60 s"
+          docker compose logs
+          exit 1
+
+      - name: Unit tests + torture suite
+        env:
+          REQUIRE_DB: "true"
+        run: mvn -B -ntp -Ptorture verify
+
+      - name: Torture report in the job summary
+        if: always()
+        run: |
+          if [ -f target/torture-report.md ]; then
+            cat target/torture-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No torture report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload reports and service logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/torture-report.md
+            target/torture-logs/
+            target/surefire-reports/
+            target/failsafe-reports/
+          if-no-files-found: ignore

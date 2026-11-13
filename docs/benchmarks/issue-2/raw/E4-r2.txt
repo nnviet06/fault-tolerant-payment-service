@@ -1,0 +1,51 @@
+# E4-r2
+date: 2026-11-13T18:08:10Z
+git: d39679c feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: pgbench -c 16 -j 4 -T 60 tools/commit-control.pgbench (5 inserts + COMMIT, no shared lock)
+synchronous_commit before=on after=on
+
+## pgbench
+pgbench (17.9)
+transaction type: /tmp/commit-control.pgbench
+scaling factor: 1
+query mode: simple
+number of clients: 16
+number of threads: 4
+maximum number of tries: 1
+duration: 60 s
+number of transactions actually processed: 230959
+number of failed transactions: 0 (0.000%)
+latency average = 4.158 ms
+initial connection time = 21.956 ms
+tps = 3848.052838 (without initial connection time)
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    4864 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ LWLock:WALWrite      | active              |        59296 | 77.5
+ IO:WalSync           | active              |         4641 |  6.1
+ CPU/running          | idle in transaction |         3190 |  4.2
+ Client:ClientRead    | idle in transaction |         3101 |  4.1
+ CPU/running          | active              |         2662 |  3.5
+ Client:ClientRead    | active              |         2193 |  2.9
+ LWLock:BufferContent | active              |          550 |  0.7
+ LWLock:WALWrite      | idle in transaction |          383 |  0.5
+ Lock:extend          | active              |          233 |  0.3
+ IO:WalWrite          | active              |          138 |  0.2
+ IO:DataFileExtend    | active              |           64 |  0.1
+ LWLock:XidGen        | active              |            8 |  0.0
+ LWLock:BufferContent | idle in transaction |            6 |  0.0
+ IO:WalWrite          | idle in transaction |            1 |  0.0
+ IO:SlruWrite         | active              |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |       13.252 |                 4694 |        16 |     15.72
+

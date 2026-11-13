@@ -8,6 +8,7 @@
 #   tools/bench-issue2.sh app <label> <clients> <wallets> <timings:true|false> <sampler:yes|no>
 #   tools/bench-issue2.sh pgbench <label>
 #   tools/bench-issue2.sh sync <on|off>      # ALTER SYSTEM + reload, prints SHOW
+#   tools/bench-issue2.sh reset              # end of session: empty stores, drop E5 sequence, verify
 #
 # Every app run: TRUNCATEs all service tables + FLUSHALL Redis (dev stores are
 # disposable), starts the shaded jar, runs one LoadDriver level
@@ -166,5 +167,12 @@ case "${1:-}" in
         else psql_db -q -c "ALTER SYSTEM RESET synchronous_commit"; fi
         psql_db -q -At -c "SELECT pg_reload_conf()" >/dev/null
         echo "synchronous_commit=$(show_sync)" ;;
-    *) sed -n '2,16p' "$0"; exit 2 ;;
+    reset)
+        reset_stores
+        psql_db -q -c "DROP SEQUENCE IF EXISTS ledger_seq_e5"
+        echo "ledger rows=$(psql_db -At -c "SELECT count(*) FROM ledger_entries")" \
+             "e5 sequence=$(psql_db -At -c "SELECT coalesce(to_regclass('ledger_seq_e5')::text, 'dropped')")" \
+             "redis keys=$(docker compose -f "$ROOT/docker-compose.yml" exec -T redis redis-cli DBSIZE)" \
+             "synchronous_commit=$(show_sync)" ;;
+    *) sed -n '2,17p' "$0"; exit 2 ;;
 esac

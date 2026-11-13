@@ -1,0 +1,54 @@
+# E4-r1
+date: 2026-11-13T18:07:06Z
+git: d39679c feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: pgbench -c 16 -j 4 -T 60 tools/commit-control.pgbench (5 inserts + COMMIT, no shared lock)
+synchronous_commit before=on after=on
+
+## pgbench
+pgbench (17.9)
+transaction type: /tmp/commit-control.pgbench
+scaling factor: 1
+query mode: simple
+number of clients: 16
+number of threads: 4
+maximum number of tries: 1
+duration: 60 s
+number of transactions actually processed: 247660
+number of failed transactions: 0 (0.000%)
+latency average = 3.874 ms
+initial connection time = 48.626 ms
+tps = 4130.239117 (without initial connection time)
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    4800 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ LWLock:WALWrite      | active              |        56995 | 75.7
+ IO:WalSync           | active              |         4440 |  5.9
+ CPU/running          | idle in transaction |         3180 |  4.2
+ Client:ClientRead    | idle in transaction |         2849 |  3.8
+ CPU/running          | active              |         2668 |  3.5
+ Client:ClientRead    | active              |         2482 |  3.3
+ LWLock:BufferContent | active              |         1446 |  1.9
+ LWLock:WALWrite      | idle in transaction |          549 |  0.7
+ Lock:extend          | active              |          319 |  0.4
+ IO:WalWrite          | active              |          225 |  0.3
+ IO:DataFileExtend    | active              |          128 |  0.2
+ LWLock:BufferContent | idle in transaction |           19 |  0.0
+ LWLock:LockManager   | active              |           10 |  0.0
+ IO:WalSync           | idle in transaction |            8 |  0.0
+ LWLock:XidGen        | active              |            4 |  0.0
+ LWLock:XidGen        | idle in transaction |            3 |  0.0
+ IO:SlruWrite         | active              |            2 |  0.0
+ IO:WalWrite          | idle in transaction |            2 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |       12.963 |                 4501 |        16 |     15.69
+

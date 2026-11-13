@@ -1,0 +1,70 @@
+# E1-c16-r2
+date: 2026-11-13T17:38:30Z
+git: 8aa6aa1 feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: clients=16 wallets=20 BENCH_TIMING=true sampler=yes measureSec=60
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=16 warmupSec=10 measureSec=60 cooldownSec=0 wallets=20 timings=true
+started 2026-11-13T17:37:18.065101Z
+seeded 20 wallets @ 1e12 minor units each
+
+--- level: 16 clients ---
+MEASURE_START 2026-11-13T17:37:28.498451400Z
+MEASURE_END 2026-11-13T17:38:28.500193200Z
+clients=16 window=60.00s committed=17327 tps=288.8 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":17328,"dropped":0,"windowSeconds":60.0023189,"phases":{"W_queue":{"mean_us":546.1,"p50_us":13.5,"p95_us":2731.5,"p99_us":3279.1,"max_us":407569.3,"sum_ms":9462.6},"W_conn":{"mean_us":0.9,"p50_us":0.5,"p95_us":3.0,"p99_us":5.1,"max_us":22.7,"sum_ms":16.3},"W_row":{"mean_us":38979.2,"p50_us":18898.9,"p95_us":140245.9,"p99_us":249052.4,"max_us":4559844.1,"sum_ms":675431.1},"W_lock":{"mean_us":11186.1,"p50_us":10333.7,"p95_us":16951.6,"p99_us":20723.6,"max_us":1307584.7,"sum_ms":193832.8},"H_work":{"mean_us":1465.5,"p50_us":1401.7,"p95_us":1875.0,"p99_us":2338.8,"max_us":79013.4,"sum_ms":25394.7},"H_commit":{"mean_us":1980.0,"p50_us":1670.1,"p95_us":2165.8,"p99_us":2854.4,"max_us":629430.5,"sum_ms":34310.0},"H":{"mean_us":3445.6,"p50_us":3078.0,"p95_us":3915.3,"p99_us":4873.5,"max_us":631291.0,"sum_ms":59704.7}}}
+busy = tps x mean(H) = 288.8 x 3445.6 us = 0.995
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 16 | 60.00 | 17327 | 288.8 | 0 | none |
+
+finished 2026-11-13T17:38:28.564785100Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+bench_commit_control autovacuum +0  autoanalyze +0
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    5357 |              5256 |      0.981
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ Lock:transactionid   | active              |        33296 | 40.2
+ Lock:tuple           | active              |        23985 | 29.0
+ Lock:advisory        | active              |        16160 | 19.5
+ Client:ClientRead    | idle in transaction |         4343 |  5.2
+ IO:WalSync           | active              |         2120 |  2.6
+ CPU/running          | active              |         1812 |  2.2
+ CPU/running          | idle in transaction |          671 |  0.8
+ Client:ClientRead    | active              |          259 |  0.3
+ IO:WalWrite          | active              |           53 |  0.1
+ Lock:advisory        | idle in transaction |           40 |  0.0
+ LWLock:WALWrite      | active              |           23 |  0.0
+ IO:WalWrite          | idle in transaction |           17 |  0.0
+ IO:WalSync           | idle in transaction |           12 |  0.0
+ LWLock:LockManager   | active              |            8 |  0.0
+ IO:DataFileExtend    | active              |            7 |  0.0
+ LWLock:BufferContent | active              |            3 |  0.0
+ IO:WalInitSync       | active              |            2 |  0.0
+ IO:WalInitWrite      | active              |            1 |  0.0
+ Lock:transactionid   | idle in transaction |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+            2 |        0.415 |                   15 |        16 |     15.46
+

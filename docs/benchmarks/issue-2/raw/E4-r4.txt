@@ -1,0 +1,53 @@
+# E4-r4
+date: 2026-11-13T18:10:12Z
+git: d39679c feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: pgbench -c 16 -j 4 -T 60 tools/commit-control.pgbench (5 inserts + COMMIT, no shared lock)
+synchronous_commit before=on after=on
+
+## pgbench
+pgbench (17.9)
+transaction type: /tmp/commit-control.pgbench
+scaling factor: 1
+query mode: simple
+number of clients: 16
+number of threads: 4
+maximum number of tries: 1
+duration: 60 s
+number of transactions actually processed: 215121
+number of failed transactions: 0 (0.000%)
+latency average = 4.475 ms
+initial connection time = 14.064 ms
+tps = 3575.050637 (without initial connection time)
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    4859 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ LWLock:WALWrite      | active              |        60984 | 79.8
+ IO:WalSync           | active              |         4581 |  6.0
+ CPU/running          | idle in transaction |         2681 |  3.5
+ Client:ClientRead    | idle in transaction |         2562 |  3.4
+ CPU/running          | active              |         2322 |  3.0
+ Client:ClientRead    | active              |         1792 |  2.3
+ LWLock:BufferContent | active              |          672 |  0.9
+ LWLock:WALWrite      | idle in transaction |          389 |  0.5
+ Lock:extend          | active              |          173 |  0.2
+ IO:WalInitSync       | active              |           72 |  0.1
+ IO:WalWrite          | active              |           68 |  0.1
+ IO:WalInitWrite      | active              |           64 |  0.1
+ IO:DataFileExtend    | active              |           57 |  0.1
+ LWLock:BufferContent | idle in transaction |            7 |  0.0
+ IO:WalSync           | idle in transaction |            2 |  0.0
+ LWLock:LockManager   | active              |            2 |  0.0
+ LWLock:WALInsert     | active              |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |       13.588 |                 4742 |        16 |     15.73
+

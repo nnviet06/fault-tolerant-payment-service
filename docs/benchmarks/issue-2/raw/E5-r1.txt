@@ -1,0 +1,74 @@
+# E5-r1
+date: 2026-11-13T18:17:55Z
+git: 9cf8c0e (jar exp.jar; checked out: 9cf8c0e)
+config: clients=32 wallets=1000 BENCH_TIMING=true sampler=yes measureSec=60
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=60 cooldownSec=0 wallets=1000 timings=true
+started 2026-11-13T18:16:25.614971600Z
+seeded 1000 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T18:16:54.016965200Z
+MEASURE_END 2026-11-13T18:17:54.030127200Z
+clients=32 window=60.01s committed=71295 tps=1188.0 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":71297,"dropped":0,"windowSeconds":60.015047799,"phases":{"W_queue":{"mean_us":11602.5,"p50_us":8778.0,"p95_us":15741.4,"p99_us":67662.1,"max_us":1309370.7,"sum_ms":827223.6},"W_conn":{"mean_us":0.4,"p50_us":0.3,"p95_us":0.5,"p99_us":1.3,"max_us":172.7,"sum_ms":28.1},"W_row":{"mean_us":1893.7,"p50_us":1521.1,"p95_us":3074.9,"p99_us":9473.5,"max_us":956282.1,"sum_ms":135015.5},"W_lock":{"mean_us":0.1,"p50_us":0.1,"p95_us":0.2,"p99_us":0.2,"max_us":60.1,"sum_ms":6.6},"H_work":{"mean_us":2985.3,"p50_us":2789.2,"p95_us":4171.1,"p99_us":5536.9,"max_us":193372.1,"sum_ms":212844.5},"H_commit":{"mean_us":5700.5,"p50_us":3341.0,"p95_us":6148.9,"p99_us":55371.3,"max_us":952511.6,"sum_ms":406426.5},"H":{"mean_us":8685.8,"p50_us":6218.2,"p95_us":10174.4,"p99_us":58789.9,"max_us":954379.9,"sum_ms":619271.0}}}
+busy = tps x mean(H) = 1188.0 x 8685.8 us = 10.319
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 60.01 | 71295 | 1188.0 | 0 | none |
+
+finished 2026-11-13T18:17:54.157261900Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    5131 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ Client:ClientRead    | idle in transaction |        31758 | 40.7
+ LWLock:WALWrite      | active              |        24344 | 31.2
+ CPU/running          | active              |         7255 |  9.3
+ CPU/running          | idle in transaction |         4638 |  5.9
+ IO:WalSync           | active              |         3968 |  5.1
+ Client:ClientRead    | active              |         2702 |  3.5
+ Lock:transactionid   | active              |         1786 |  2.3
+ IO:DataFileExtend    | active              |          442 |  0.6
+ IO:WalWrite          | active              |          389 |  0.5
+ LWLock:WALWrite      | idle in transaction |          326 |  0.4
+ Lock:extend          | active              |          325 |  0.4
+ LWLock:BufferContent | active              |           52 |  0.1
+ IO:WalWrite          | idle in transaction |           31 |  0.0
+ Lock:tuple           | active              |           19 |  0.0
+ IO:DataFileExtend    | idle in transaction |           10 |  0.0
+ LWLock:XidGen        | active              |            7 |  0.0
+ IO:WalSync           | idle in transaction |            6 |  0.0
+ LWLock:BufferContent | idle in transaction |            6 |  0.0
+ LWLock:WALInsert     | active              |            3 |  0.0
+ Lock:transactionid   | idle in transaction |            2 |  0.0
+ LWLock:WALInsert     | idle in transaction |            1 |  0.0
+ LWLock:ProcArray     | active              |            1 |  0.0
+ IO:DataFileRead      | active              |            1 |  0.0
+ Lock:extend          | idle in transaction |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |        5.664 |                 3493 |        16 |     15.22
+

@@ -1,0 +1,64 @@
+# E3-r2
+date: 2026-11-13T17:41:16Z
+git: 8aa6aa1 feat/2-benchmark-transfer-bottleneck (modified tracked files: 0)
+config: clients=32 wallets=20 BENCH_TIMING=true sampler=yes measureSec=60
+synchronous_commit before=off after=off
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=60 cooldownSec=0 wallets=20 timings=true
+started 2026-11-13T17:40:05.092824300Z
+seeded 20 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T17:40:15.454245100Z
+MEASURE_END 2026-11-13T17:41:15.456533500Z
+clients=32 window=60.00s committed=29589 tps=493.1 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":29590,"dropped":0,"windowSeconds":60.0038274,"phases":{"W_queue":{"mean_us":32190.2,"p50_us":31270.4,"p95_us":41190.8,"p99_us":45587.9,"max_us":53053.6,"sum_ms":952507.0},"W_conn":{"mean_us":0.4,"p50_us":0.3,"p95_us":0.6,"p99_us":3.1,"max_us":28.3,"sum_ms":11.1},"W_row":{"mean_us":22892.7,"p50_us":12421.2,"p95_us":85278.7,"p99_us":150006.1,"max_us":336617.2,"sum_ms":677394.2},"W_lock":{"mean_us":5926.3,"p50_us":5855.8,"p95_us":10127.1,"p99_us":12374.7,"max_us":17686.2,"sum_ms":175360.0},"H_work":{"mean_us":1661.1,"p50_us":1602.2,"p95_us":2152.5,"p99_us":2511.3,"max_us":6905.4,"sum_ms":49151.5},"H_commit":{"mean_us":326.3,"p50_us":317.7,"p95_us":439.1,"p99_us":509.6,"max_us":2801.6,"sum_ms":9655.4},"H":{"mean_us":1987.4,"p50_us":1916.6,"p95_us":2557.7,"p99_us":2980.5,"max_us":7309.2,"sum_ms":58806.9}}}
+busy = tps x mean(H) = 493.1 x 1987.4 us = 0.980
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 60.00 | 29589 | 493.1 | 0 | none |
+
+finished 2026-11-13T17:41:15.559316200Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+bench_commit_control autovacuum +0  autoanalyze +0
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    5337 |              5329 |      0.999
+
+== 2. wait distribution of in-transaction backends ==
+      activity      |        state        | observations | pct  
+--------------------+---------------------+--------------+------
+ Lock:transactionid | active              |        33403 | 39.5
+ Lock:tuple         | active              |        24339 | 28.8
+ Lock:advisory      | active              |        14769 | 17.5
+ Client:ClientRead  | idle in transaction |         7002 |  8.3
+ CPU/running        | active              |         3231 |  3.8
+ CPU/running        | idle in transaction |         1270 |  1.5
+ Client:ClientRead  | active              |          459 |  0.5
+ Lock:advisory      | idle in transaction |           60 |  0.1
+ IO:DataFileExtend  | active              |           25 |  0.0
+ LWLock:LockManager | active              |           10 |  0.0
+ Lock:transactionid | idle in transaction |            1 |  0.0
+ Lock:tuple         | idle in transaction |            1 |  0.0
+ LWLock:LockManager | idle in transaction |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+            0 |        0.000 |                    0 |        16 |     15.85
+

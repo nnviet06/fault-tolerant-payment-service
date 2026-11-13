@@ -21,9 +21,15 @@ import java.util.concurrent.atomic.AtomicLong;
  * so it compiles with a bare `javac` and runs with a bare `java`, no classpath.
  *
  *   javac -d target/bench tools/LoadDriver.java
- *   java -cp target/bench LoadDriver [baseUrl] [levelsCSV] [warmupSec] [measureSec] [cooldownSec] [wallets]
+ *   java -cp target/bench LoadDriver [baseUrl] [levelsCSV] [warmupSec] [measureSec] [cooldownSec] [wallets] [timings]
  *
- * Defaults: http://localhost:8080  16,32,64  10  30  10  20
+ * Defaults: http://localhost:8080  16,32,64  10  30  10  20  false
+ *
+ * timings=true (issue #2): the service must run with BENCH_TIMING=true. The
+ * driver resets /debug/timings right before each measured window and fetches
+ * it right after, printing the raw JSON and busy = tps x mean(H).
+ * Each window start/end is printed as a MEASURE_START / MEASURE_END line so an
+ * external sampler can be aligned to it.
  *
  * The service (java -jar target/...jar) and docker compose (Postgres+Redis) must
  * already be running.
@@ -35,6 +41,7 @@ public final class LoadDriver {
 
     private static volatile boolean measuring = false;
     private static volatile boolean running = true;
+    private static boolean timings = false;
 
     public static void main(String[] args) throws Exception {
         String baseUrl   = arg(args, 0, "http://localhost:8080");
@@ -43,13 +50,15 @@ public final class LoadDriver {
         int measureSec   = Integer.parseInt(arg(args, 3, "30"));
         int cooldownSec  = Integer.parseInt(arg(args, 4, "10"));
         int walletCount  = Integer.parseInt(arg(args, 5, "20"));
+        timings          = Boolean.parseBoolean(arg(args, 6, "false"));
 
         int[] levels = parseLevels(levelsCsv);
 
         System.out.println("== LoadDriver ==");
         System.out.println("baseUrl=" + baseUrl + " levels=" + levelsCsv
                 + " warmupSec=" + warmupSec + " measureSec=" + measureSec
-                + " cooldownSec=" + cooldownSec + " wallets=" + walletCount);
+                + " cooldownSec=" + cooldownSec + " wallets=" + walletCount
+                + " timings=" + timings);
         System.out.println("started " + java.time.Instant.now());
 
         // one shared, heavily-seeded wallet pool for the whole sweep
@@ -125,11 +134,17 @@ public final class LoadDriver {
         byStatus.clear();
         timeouts.set(0);
         otherErrors.set(0);
+        if (timings) {
+            httpCall(baseUrl, "POST", "/debug/timings/reset");
+        }
         long t0 = System.nanoTime();
         measuring = true;
+        System.out.println("MEASURE_START " + java.time.Instant.now());
         Thread.sleep(measureSec * 1000L);
         measuring = false;
         long windowNanos = System.nanoTime() - t0;
+        System.out.println("MEASURE_END " + java.time.Instant.now());
+        String timingsJson = timings ? httpCall(baseUrl, "GET", "/debug/timings") : null;
         running = false;
         for (Thread t : threads) {
             t.join(60_000);
@@ -152,6 +167,12 @@ public final class LoadDriver {
 
         System.out.printf("clients=%d window=%.2fs committed=%d tps=%.1f non201=%d [%s]%n%n",
                 clients, windowSec, ok, tps, non201, breakdown.toString().trim());
+        if (timingsJson != null) {
+            double meanHoldUs = extractPhaseMean(timingsJson, "H");
+            System.out.println("TIMINGS " + timingsJson);
+            System.out.printf("busy = tps x mean(H) = %.1f x %.1f us = %.3f%n%n",
+                    tps, meanHoldUs, tps * meanHoldUs / 1_000_000.0);
+        }
 
         return String.format("| %d | %.2f | %d | %.1f | %d | %s |",
                 clients, windowSec, ok, tps, non201, breakdown.toString().trim());
@@ -177,6 +198,32 @@ public final class LoadDriver {
             if (inWindow) otherErrors.incrementAndGet();
             return -1;
         }
+    }
+
+    // ---------- timings helpers ----------
+
+    private static String httpCall(String baseUrl, String method, String path) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .timeout(Duration.ofSeconds(10))
+                .method(method, HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> r = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() != 200) {
+            throw new IllegalStateException(method + " " + path + " -> " + r.statusCode()
+                    + " (is the service running with BENCH_TIMING=true?)");
+        }
+        return r.body();
+    }
+
+    /** mean_us of one phase from the /debug/timings JSON: ..."H":{"mean_us":123.4,... */
+    private static double extractPhaseMean(String json, String phase) {
+        int i = json.indexOf("\"" + phase + "\":{");
+        if (i < 0) throw new IllegalStateException("phase " + phase + " not in " + json);
+        String needle = "\"mean_us\":";
+        int j = json.indexOf(needle, i) + needle.length();
+        int end = j;
+        while (end < json.length() && "0123456789.-E".indexOf(json.charAt(end)) >= 0) end++;
+        return Double.parseDouble(json.substring(j, end));
     }
 
     // ---------- setup helpers ----------

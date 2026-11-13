@@ -157,6 +157,9 @@
               </includes>
               <systemPropertyVariables>
                 <torture.jar>${project.build.directory}/${project.build.finalName}.jar</torture.jar>
+                <torture.report>${project.build.directory}/torture-report.md</torture.report>
+                <torture.logs>${project.build.directory}/torture-logs</torture.logs>
+                <torture.sink>${project.build.directory}/torture-sink</torture.sink>
               </systemPropertyVariables>
             </configuration>
             <executions>

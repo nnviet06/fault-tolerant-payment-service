@@ -44,7 +44,9 @@ public final class ServiceProcess implements AutoCloseable {
         ProcessBuilder pb = new ProcessBuilder(javaBin, "-jar", jar);
         pb.environment().put("HTTP_PORT", String.valueOf(port));
         pb.environment().putAll(extraEnv);
-        File log = new File("target/torture-logs/service-" + port + "-"
+        // absolute dir from the pom (torture.logs); relative fallback for IDE runs
+        String logDir = System.getProperty("torture.logs", "target/torture-logs");
+        File log = new File(logDir, "service-" + port + "-"
                 + System.nanoTime() + ".log");
         Files.createDirectories(log.getParentFile().toPath());
         pb.redirectErrorStream(true);

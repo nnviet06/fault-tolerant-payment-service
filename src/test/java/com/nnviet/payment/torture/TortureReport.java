@@ -31,7 +31,10 @@ public final class TortureReport {
             String notes) {
     }
 
-    private static final Path REPORT = Path.of("target", "torture-report.md");
+    // Absolute path from the pom (torture.report): failsafe's working directory
+    // made the old relative path land in target/target/. Fallback for IDE runs.
+    private static final Path REPORT = Path.of(
+            System.getProperty("torture.report", "target/torture-report.md"));
     private static final List<Scenario> results =
             Collections.synchronizedList(new ArrayList<>());
     private static final Instant STARTED = Instant.now();

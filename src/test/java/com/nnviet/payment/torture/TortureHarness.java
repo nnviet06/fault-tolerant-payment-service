@@ -39,27 +39,51 @@ public final class TortureHarness {
 
     // ---------- lifecycle ----------
 
-    /** Skips (not fails) the scenario when the docker-compose Postgres is down. */
+    /**
+     * Skips (not fails) the scenario when the docker-compose Postgres is down;
+     * with REQUIRE_DB=true (CI) a missing Postgres or Redis fails it instead.
+     */
     public static void requireInfrastructure() throws Exception {
         Assumptions.assumeTrue(TestDb.available(), TestDb.SKIP_MESSAGE);
         TestDb.ensureSchema();
         TestDb.truncateAll();
         // Postgres AND Redis must both start clean: a stale idempotency cache
         // from a previous run would (correctly) reject recycled scenario keys
-        // as key reuse. Best-effort - a down Redis simply means no cache.
+        // as key reuse. Best-effort locally - a down Redis simply means no
+        // cache - but an error under REQUIRE_DB=true (CI must test with Redis).
         flushRedis();
     }
 
     private static void flushRedis() {
+        try {
+            sendFlushAll();
+        } catch (Exception e) {
+            if (TestDb.required()) {
+                throw new IllegalStateException(
+                        "REQUIRE_DB=true but Redis is unreachable at localhost:6379", e);
+            }
+            // Redis unreachable: nothing cached, nothing to flush
+        }
+    }
+
+    private static void sendFlushAll() throws Exception {
         try (java.net.Socket socket = new java.net.Socket("localhost", 6379)) {
             socket.setSoTimeout(2_000);
             socket.getOutputStream().write("*1\r\n$8\r\nFLUSHALL\r\n"
                     .getBytes(StandardCharsets.US_ASCII));
             socket.getOutputStream().flush();
-            socket.getInputStream().read(new byte[16]); // consume "+OK\r\n"
-        } catch (Exception ignored) {
-            // Redis unreachable: nothing cached, nothing to flush
+            byte[] reply = new byte[16];
+            int n = socket.getInputStream().read(reply);
+            String answer = n > 0 ? new String(reply, 0, n, StandardCharsets.US_ASCII) : "";
+            if (!answer.startsWith("+OK")) {
+                throw new IllegalStateException("Redis FLUSHALL answered: " + answer.trim());
+            }
         }
+    }
+
+    /** Event-sink file for scenarios using the file publisher (absolute dir from the pom). */
+    public static Path sinkFile(String name) {
+        return Path.of(System.getProperty("torture.sink", "target/torture-sink"), name);
     }
 
     // ---------- HTTP ----------

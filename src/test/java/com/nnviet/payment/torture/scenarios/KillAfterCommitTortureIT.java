@@ -35,7 +35,7 @@ class KillAfterCommitTortureIT {
         TortureHarness.requireInfrastructure();
         List<String> failures = new ArrayList<>();
         LinkedHashMap<String, String> metrics = new LinkedHashMap<>();
-        Path sink = Path.of("target", "torture-sink", "kill-after-commit.jsonl");
+        Path sink = TortureHarness.sinkFile("kill-after-commit.jsonl");
         Files.createDirectories(sink.getParent());
         Files.deleteIfExists(sink);
         try {

@@ -4,6 +4,7 @@
 
 ### A wallet ledger that keeps money consistent.
 
+[![CI](https://github.com/nnviet06/fault-tolerant-payment-service/actions/workflows/ci.yml/badge.svg)](https://github.com/nnviet06/fault-tolerant-payment-service/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)
 ![Vert.x](https://img.shields.io/badge/Vert.x-4.5-782A90?logo=eclipsevertdotx&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
@@ -135,8 +136,7 @@ mvn -Ptorture verify          # wipes all tables and Redis: dev stores only
 
 Each scenario runs the shaded jar as a subprocess, attacks it (races, retries,
 `Runtime.halt` at a named point), then checks invariants in Postgres.
-**9/9 passed** on 2026-07-19. Report: `target/target/torture-report.md` (nested
-path is a known bug, see [#1](https://github.com/nnviet06/fault-tolerant-payment-service/issues/1)).
+CI runs all 9 on every push and PR. Report: `target/torture-report.md`.
 
 ## Measured
 
@@ -157,14 +157,14 @@ pool. Details: [benchmark-report.md](docs/benchmark-report.md), Phases D–E.
 
 ```mermaid
 flowchart LR
-    B["Baseline<br/>9/9 torture"]:::done --> CI["CI on every PR<br/>(#1)"] --> BM["Find the bottleneck<br/>(#2)"]:::done --> SH["Per-wallet hash chains<br/>(#4)"]:::done
+    B["Baseline<br/>9/9 torture"]:::done --> CI["CI on every PR<br/>(#1)"]:::done --> BM["Find the bottleneck<br/>(#2)"]:::done --> SH["Per-wallet hash chains<br/>(#4)"]:::done
     B --> RH["Harden outbox relay"] --> K["Kafka behind<br/>EventPublisher"]
     classDef done fill:#2da44e,color:#fff,stroke:#2da44e
 ```
 
 | Milestone | Goal | Status |
 |---|---|---|
-| 1. Prove the ceiling, then remove it | CI runs all 9 scenarios; time each step of a transfer; shard the chain only if the advisory lock is confirmed as the bottleneck | [#2](https://github.com/nnviet06/fault-tolerant-payment-service/issues/2) and [#4](https://github.com/nnviet06/fault-tolerant-payment-service/issues/4) done; [#1](https://github.com/nnviet06/fault-tolerant-payment-service/issues/1) open |
+| 1. Prove the ceiling, then remove it | CI runs all 9 scenarios; time each step of a transfer; shard the chain only if the advisory lock is confirmed as the bottleneck | [#1](https://github.com/nnviet06/fault-tolerant-payment-service/issues/1), [#2](https://github.com/nnviet06/fault-tolerant-payment-service/issues/2) and [#4](https://github.com/nnviet06/fault-tolerant-payment-service/issues/4) done |
 | 2. Harden the outbox relay | count failed attempts, dead-letter a poison event, stop holding the txn during publish, `422` on amount overflow | planned |
 | 3. Real broker | Kafka adapter for `EventPublisher`, dedup proven against it | planned |
 

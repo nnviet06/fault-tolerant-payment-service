@@ -1,0 +1,75 @@
+# I4-feat4-1000w-r3
+date: 2026-11-13T19:26:59Z
+git: 9046342 (jar feat4.jar; checked out: 9046342)
+config: clients=32 wallets=1000 BENCH_TIMING=true sampler=yes measureSec=60
+synchronous_commit before=on after=on
+
+## LoadDriver
+== LoadDriver ==
+baseUrl=http://localhost:8080 levels=32 warmupSec=10 measureSec=60 cooldownSec=0 wallets=1000 timings=true
+started 2026-11-13T19:25:38.577809500Z
+seeded 1000 wallets @ 1e12 minor units each
+
+--- level: 32 clients ---
+MEASURE_START 2026-11-13T19:25:58.599379600Z
+MEASURE_END 2026-11-13T19:26:58.608433700Z
+clients=32 window=60.01s committed=56319 tps=938.5 non201=0 [none]
+
+TIMINGS {"enabled":true,"samples":56322,"dropped":0,"windowSeconds":60.0111001,"phases":{"W_queue":{"mean_us":15300.8,"p50_us":11029.0,"p95_us":21513.1,"p99_us":117911.8,"max_us":691583.4,"sum_ms":861774.1},"W_conn":{"mean_us":0.5,"p50_us":0.4,"p95_us":0.7,"p99_us":1.2,"max_us":75.3,"sum_ms":28.6},"W_row":{"mean_us":1988.9,"p50_us":1520.2,"p95_us":3101.3,"p99_us":11750.6,"max_us":433890.4,"sum_ms":112017.4},"W_lock":{"mean_us":791.1,"p50_us":718.9,"p95_us":1271.9,"p99_us":1794.4,"max_us":58564.7,"sum_ms":44553.7},"H_work":{"mean_us":4091.4,"p50_us":3753.7,"p95_us":5426.9,"p99_us":7459.2,"max_us":301610.3,"sum_ms":230433.5},"H_commit":{"mean_us":7164.1,"p50_us":3655.5,"p95_us":9211.7,"p99_us":90498.5,"max_us":620797.9,"sum_ms":403494.2},"H":{"mean_us":11255.4,"p50_us":7539.3,"p95_us":14251.7,"p99_us":111914.2,"max_us":718923.0,"sum_ms":633927.7}}}
+busy = tps x mean(H) = 938.5 x 11255.4 us = 10.563
+
+
+== SWEEP SUMMARY ==
+| clients | window s | committed (201) | throughput tps | non-201 total | breakdown |
+|---|---|---|---|---|---|
+| 32 | 60.01 | 56319 | 938.5 | 0 | none |
+
+finished 2026-11-13T19:26:58.732963800Z
+
+## autovacuum inside the measure window (pg_stat_user_tables delta)
+holds              autovacuum +0  autoanalyze +0
+idempotency_keys   autovacuum +1  autoanalyze +1
+ledger_entries     autovacuum +1  autoanalyze +1
+outbox             autovacuum +1  autoanalyze +1
+wallets            autovacuum +1  autoanalyze +1
+
+## pg-wait-sampler
+== 1. chain-lock busy share ==
+ samples | samples_lock_held | busy_share 
+---------+-------------------+------------
+    5164 |                 0 |      0.000
+
+== 2. wait distribution of in-transaction backends ==
+       activity       |        state        | observations | pct  
+----------------------+---------------------+--------------+------
+ Client:ClientRead    | idle in transaction |        29405 | 37.0
+ LWLock:WALWrite      | active              |        25313 | 31.9
+ CPU/running          | active              |         9181 | 11.6
+ CPU/running          | idle in transaction |         4673 |  5.9
+ IO:WalSync           | active              |         3534 |  4.5
+ Client:ClientRead    | active              |         2836 |  3.6
+ Lock:transactionid   | active              |         1838 |  2.3
+ Lock:extend          | active              |          882 |  1.1
+ IO:WalWrite          | active              |          716 |  0.9
+ IO:DataFileExtend    | active              |          573 |  0.7
+ LWLock:WALWrite      | idle in transaction |          243 |  0.3
+ LWLock:BufferContent | active              |           78 |  0.1
+ IO:WalWrite          | idle in transaction |           28 |  0.0
+ LWLock:XidGen        | active              |           25 |  0.0
+ Lock:tuple           | active              |           12 |  0.0
+ LWLock:BufferContent | idle in transaction |            7 |  0.0
+ LWLock:LockManager   | active              |            5 |  0.0
+ IO:DataFileExtend    | idle in transaction |            4 |  0.0
+ Timeout:SpinDelay    | active              |            4 |  0.0
+ LWLock:WALInsert     | active              |            3 |  0.0
+ Lock:transactionid   | idle in transaction |            2 |  0.0
+ IO:SlruWrite         | active              |            2 |  0.0
+ LWLock:BufferMapping | active              |            1 |  0.0
+ LWLock:ProcArray     | active              |            1 |  0.0
+ IO:WalSync           | idle in transaction |            1 |  0.0
+
+== 3. commit-flush overlap (backends in WAL flush per sample) ==
+ max_flushing | avg_flushing | samples_flushing_ge2 | max_in_tx | avg_in_tx 
+--------------+--------------+----------------------+-----------+-----------
+           16 |        5.777 |                 3398 |        16 |     15.37
+

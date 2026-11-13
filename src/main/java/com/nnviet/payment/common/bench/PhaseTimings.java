@@ -31,10 +31,13 @@ public final class PhaseTimings {
         CONN_END,     // connection in hand
         ROW_START,    // before locking the two wallet rows (FOR UPDATE)
         ROW_END,      // both wallet rows locked
-        LOCK_START,   // before pg_advisory_xact_lock
-        LOCK_END,     // chain lock acquired
+        // LOCK_*: taking the ledger chain position. Until #4: waiting for the
+        // global chain lock (pg_advisory_xact_lock). Since #4 (per-wallet
+        // chains, no global lock): reading the wallets' chain heads.
+        LOCK_START,
+        LOCK_END,
         COMMIT_START, // before conn.commit()
-        COMMIT_END    // commit returned (chain lock released)
+        COMMIT_END    // commit returned (all locks released)
     }
 
     /** Derived durations, each the difference of two marks. */
@@ -45,7 +48,9 @@ public final class PhaseTimings {
         W_lock(Mark.LOCK_START, Mark.LOCK_END),
         H_work(Mark.LOCK_END, Mark.COMMIT_START),
         H_commit(Mark.COMMIT_START, Mark.COMMIT_END),
-        H(Mark.LOCK_END, Mark.COMMIT_END); // chain lock hold = H_work + H_commit
+        // chain position held until commit = H_work + H_commit (until #4: the
+        // global chain-lock hold; since #4: the wallet row locks' tail)
+        H(Mark.LOCK_END, Mark.COMMIT_END);
 
         final Mark from;
         final Mark to;

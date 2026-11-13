@@ -56,7 +56,8 @@ class TamperEvidenceTortureIT {
             metrics.put("reason reported", String.valueOf(after.getString("reason")));
             check(failures, Boolean.FALSE.equals(after.getBoolean("valid")),
                     "tampering must invalidate the chain");
-            check(failures, Long.valueOf(target).equals(after.getLong("firstBrokenSeq")),
+            // DELIBERATELY BROKEN on branch ci/1-red-check only: CI must turn red
+            check(failures, Long.valueOf(target + 1).equals(after.getLong("firstBrokenSeq")),
                     "detection must point at seq " + target + ", got "
                             + after.getLong("firstBrokenSeq"));
         } catch (Exception e) {

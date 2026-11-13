@@ -18,7 +18,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RAW="$ROOT/docs/benchmarks/issue-2/raw"
-JAR="$ROOT/target/fault-tolerant-payment-service-0.1.0-SNAPSHOT.jar"
+# JAR / JAR_REV: run a jar saved from another commit (E5 interleaves two
+# builds). JAR_REV must then name the commit that jar was built from; it is
+# what the raw file records instead of the checked-out HEAD.
+JAR="${JAR:-$ROOT/target/fault-tolerant-payment-service-0.1.0-SNAPSHOT.jar}"
+if [ -n "${JAR_REV:-}" ]; then
+    REV_LINE="git: $JAR_REV (jar $(basename "$JAR"); checked out: $(git -C "$ROOT" rev-parse --short HEAD))"
+else
+    REV_LINE="git: $(git -C "$ROOT" rev-parse --short HEAD) $(git -C "$ROOT" rev-parse --abbrev-ref HEAD) (modified tracked files: $(git -C "$ROOT" status --porcelain --untracked-files=no | wc -l | tr -d ' '))"
+fi
 LOGDIR="$ROOT/target/bench-logs"
 MEASURE_SEC="${MEASURE_SEC:-60}"
 # sampler runs for the window minus a margin for `docker compose exec` startup,
@@ -97,7 +105,7 @@ run_app() {
     {
         echo "# $label"
         echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        echo "git: $(git -C "$ROOT" rev-parse --short HEAD) $(git -C "$ROOT" rev-parse --abbrev-ref HEAD) (modified tracked files: $(git -C "$ROOT" status --porcelain --untracked-files=no | wc -l | tr -d ' '))"
+        echo "$REV_LINE"
         echo "config: clients=$clients wallets=$wallets BENCH_TIMING=$timings sampler=$sampler measureSec=$MEASURE_SEC"
         echo "synchronous_commit before=$pre after=$post"
         echo
@@ -137,7 +145,7 @@ run_pgbench() {
     {
         echo "# $label"
         echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        echo "git: $(git -C "$ROOT" rev-parse --short HEAD) $(git -C "$ROOT" rev-parse --abbrev-ref HEAD) (modified tracked files: $(git -C "$ROOT" status --porcelain --untracked-files=no | wc -l | tr -d ' '))"
+        echo "$REV_LINE"
         echo "config: pgbench -c 16 -j 4 -T $MEASURE_SEC tools/commit-control.pgbench (5 inserts + COMMIT, no shared lock)"
         echo "synchronous_commit before=$pre after=$post"
         echo

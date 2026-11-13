@@ -147,7 +147,9 @@ def main(raw_dir):
         if not app and not pg:
             continue
         pg_cell = f"{med(pg):.3f}" if pg else "-"
-        print(f"| {g} | {med(app):.3f} | {med(inv):.1f} | {med([r['tps'] for r in rs if 'tps' in r]):.1f} | "
+        app_cell = f"{med(app):.3f}" if app else "-"
+        inv_cell = f"{med(inv):.1f}" if inv else "-"
+        print(f"| {g} | {app_cell} | {inv_cell} | {med([r['tps'] for r in rs if 'tps' in r]):.1f} | "
               f"{pg_cell} |")
 
     print("\n## Where in-transaction backends spend time (pg sampler, all runs pooled, % of observations)\n")

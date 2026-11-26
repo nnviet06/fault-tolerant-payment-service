@@ -1,7 +1,5 @@
--- Issue #2, experiment E4: parallel-commit control.
--- Transfer-sized write transactions (5 single-row inserts + COMMIT) with NO
--- shared lock between clients: what commit rate can this Postgres + disk
--- sustain when commits are free to overlap (group commit)?
+-- Commit rate of Postgres + disk with no shared lock: transfer-sized transactions
+-- (5 inserts + COMMIT) free to overlap.
 --
 -- Setup / run / teardown (scratch table, never part of schema.sql):
 --   docker compose exec -T postgres psql -U user123 -d userdb -c \

@@ -19,10 +19,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Adversary 2: the retry duplicate. One deposit replayed 100 times with the
- * same Idempotency-Key (50 as a concurrent burst, 50 sequentially). Exactly
- * one application, identical responses for everyone, and key reuse with a
- * different payload rejected.
+ * One deposit sent 100 times with the same key (50 at once, 50 one by one): applied once,
+ * same response for all, and the key with a different body is rejected.
  */
 class RetryStormTortureIT {
 

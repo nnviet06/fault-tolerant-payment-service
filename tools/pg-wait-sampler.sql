@@ -1,21 +1,17 @@
--- Issue #2 secondary evidence: samples what every client backend of the
--- current database is doing, every :interval_ms, for :duration_s seconds
--- (time-bounded, so it can be made to end inside a load window), then prints
--- three summaries. Read-only towards the service's tables.
+-- Samples what every backend is doing every :interval_ms for :duration_s seconds,
+-- then prints three summaries. Read-only.
 --
 --   docker compose exec -T postgres psql -U user123 -d userdb \
 --     -v duration_s=55 -v interval_ms=10 < tools/pg-wait-sampler.sql
 --
 -- Summaries:
---   1. chain-lock busy share  = share of samples in which SOME backend holds
---                               the advisory lock (the ledger chain lock is
---                               the only advisory lock the service takes)
+--   1. chain-lock busy share  = share of samples where a backend holds an advisory
+--                               lock (the old global chain lock; now always 0)
 --   2. wait distribution      = what in-transaction backends are doing
 --   3. commit-flush overlap   = how many backends are flushing/awaiting WAL
 --                               at the same instant (always <= 1 means
 --                               commits are not being grouped)
--- Caveat: a 10 ms sampler sees short events (a ~1 ms fsync) only
--- probabilistically; read the shares as proportions, not durations.
+-- A 10 ms sampler catches ~1 ms events only by chance: read shares as proportions.
 
 \set QUIET on
 \pset footer off

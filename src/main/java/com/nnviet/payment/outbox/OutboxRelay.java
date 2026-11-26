@@ -12,13 +12,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * The read side of the transactional outbox: poll unpublished rows, publish,
- * mark published - all inside one transaction on a worker thread.
- *
- * Crash anywhere between publish and commit leaves published_at NULL, so the
- * row is republished after restart: delivery is AT-LEAST-ONCE, never lost.
- * Duplicates are the consumer's job to drop (dedup key: event_id). This is
- * deliberate - exactly-once delivery is not claimed anywhere.
+ * Polls unpublished outbox rows, publishes them and marks them sent, in one transaction.
+ * A crash before commit leaves them unsent, so they go out again: at-least-once, never lost.
  */
 public class OutboxRelay {
 
@@ -73,7 +68,7 @@ public class OutboxRelay {
                 repository.incrementAttempts(conn, p.id());
                 OutboxEvent event = new OutboxEvent(
                         p.eventId(), p.eventType(), new JsonObject(p.payloadJson()));
-                // blocking await is fine here: this closure runs on a db-worker thread
+                // blocking is fine: this runs on a db-worker thread
                 publisher.publish(event).await().indefinitely();
                 Chaos.point(Chaos.RELAY_AFTER_PUBLISH_BEFORE_MARK);
                 repository.markPublished(conn, p.id());

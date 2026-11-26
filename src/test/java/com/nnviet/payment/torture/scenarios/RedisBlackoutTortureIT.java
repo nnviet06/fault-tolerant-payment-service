@@ -15,10 +15,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The layering proof for the Redis decision: the service is started with an
- * unreachable Redis (port 1), then the exact retry-storm scenario must hold
- * anyway - because correctness lives in Postgres, and Redis is only a cache
- * of finished responses.
+ * Retry storm with Redis unreachable (port 1): must still hold, because Postgres decides
+ * and Redis only caches.
  */
 class RedisBlackoutTortureIT {
 

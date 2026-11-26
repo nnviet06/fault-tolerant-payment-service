@@ -50,9 +50,8 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Wires the whole service: pools, repositories, tasks, workflows, HTTP router,
- * outbox relay and hold-expiry sweeper. Construction only - every mechanism
- * lives in its own class.
+ * Wires the service: pools, repositories, tasks, workflows, routes, relay and hold sweeper.
+ * Construction only; no logic lives here.
  */
 public class MainVerticle extends AbstractVerticle {
 
@@ -63,7 +62,7 @@ public class MainVerticle extends AbstractVerticle {
     @Override
     public Uni<Void> asyncStart() {
         AppConfig config = AppConfig.fromEnv();
-        // pool creation + schema.sql are blocking JDBC: off the event loop
+        // blocking JDBC: keep it off the event loop
         return vertx.executeBlocking(() -> {
             HikariDataSource ds = DataSources.createPool(config);
             DataSources.applySchema(ds);
@@ -75,7 +74,7 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     private Uni<Void> startService(AppConfig config, HikariDataSource ds) {
-        // worker pool sized to the connection pool: a db task never queues on a connection
+        // one worker per connection, so a db task never waits for a connection
         WorkerExecutor dbWorkers =
                 vertx.createSharedWorkerExecutor("db-worker", config.dbPoolSize());
         Tx tx = new Tx(ds, dbWorkers);
@@ -143,7 +142,7 @@ public class MainVerticle extends AbstractVerticle {
                 .replaceWithVoid();
     }
 
-    /** Issue #2 measurement endpoints; not registered at all unless BENCH_TIMING=true. */
+    /** Timing endpoints for benchmarks; registered only with BENCH_TIMING=true. */
     private void registerBenchRoutes(Router router) {
         PhaseTimings timings = PhaseTimings.global();
         if (!timings.enabled()) {
@@ -158,7 +157,7 @@ public class MainVerticle extends AbstractVerticle {
         log.warn("BENCH_TIMING=true: phase timings enabled, /debug/timings exposed");
     }
 
-    /** DB down is fatal (503); Redis down is reported but non-fatal - it is only a cache. */
+    /** DB down returns 503; Redis down is reported but still 200, since it is only a cache. */
     private void health(RoutingContext ctx, Tx tx, RedisAPI redis) {
         tx.inTx(conn -> {
             try (var stmt = conn.createStatement()) {

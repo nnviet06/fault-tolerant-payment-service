@@ -16,8 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Task-level tests against the real Postgres: the schema CHECK constraints
- * are part of the behavior under test (last line of defense).
+ * Task tests on real Postgres, so the schema CHECK constraints are tested too.
  */
 class DebitCreditTaskTest {
 

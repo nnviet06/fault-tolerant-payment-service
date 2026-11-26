@@ -13,26 +13,17 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Standalone, JDK-only throughput driver for the fault-tolerant-payment-service.
- * Measures sustained COMMITTED transfers/sec (HTTP 201) through the full atomic
- * boundary, plus the non-201 breakdown (error/timeout rate) at each client level.
- *
- * Not part of the Maven build: depends only on java.net.http + java.util.concurrent
- * so it compiles with a bare `javac` and runs with a bare `java`, no classpath.
+ * Measures committed transfers/sec (HTTP 201) at each client level, plus every non-201.
+ * JDK only, outside the Maven build, so a bare javac/java runs it.
  *
  *   javac -d target/bench tools/LoadDriver.java
  *   java -cp target/bench LoadDriver [baseUrl] [levelsCSV] [warmupSec] [measureSec] [cooldownSec] [wallets] [timings]
  *
  * Defaults: http://localhost:8080  16,32,64  10  30  10  20  false
  *
- * timings=true (issue #2): the service must run with BENCH_TIMING=true. The
- * driver resets /debug/timings right before each measured window and fetches
- * it right after, printing the raw JSON and busy = tps x mean(H).
- * Each window start/end is printed as a MEASURE_START / MEASURE_END line so an
- * external sampler can be aligned to it.
- *
- * The service (java -jar target/...jar) and docker compose (Postgres+Redis) must
- * already be running.
+ * timings=true needs the service run with BENCH_TIMING=true: prints /debug/timings per window.
+ * MEASURE_START / MEASURE_END lines let an outside sampler line up with each window.
+ * The service and docker compose must already be running.
  */
 public final class LoadDriver {
 

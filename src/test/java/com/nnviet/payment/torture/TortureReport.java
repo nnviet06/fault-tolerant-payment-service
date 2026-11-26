@@ -13,11 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Collects scenario results and renders target/torture-report.md after every
- * recorded scenario (so a crashed suite still leaves a report behind).
- *
- * Honesty rule: every number in the report is measured in the run that wrote
- * it; anything that cannot be measured is printed as UNMEASURED.
+ * Rewrites target/torture-report.md after each scenario, so a crashed suite still leaves a report.
+ * Every number is measured in that run; anything else is printed as UNMEASURED.
  */
 public final class TortureReport {
 
@@ -31,8 +28,7 @@ public final class TortureReport {
             String notes) {
     }
 
-    // Absolute path from the pom (torture.report): failsafe's working directory
-    // made the old relative path land in target/target/. Fallback for IDE runs.
+    // absolute path from the pom (torture.report); relative fallback for IDE runs
     private static final Path REPORT = Path.of(
             System.getProperty("torture.report", "target/torture-report.md"));
     private static final List<Scenario> results =

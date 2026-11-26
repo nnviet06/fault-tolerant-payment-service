@@ -11,16 +11,8 @@ import java.sql.SQLException;
 import java.util.concurrent.Callable;
 
 /**
- * THE transaction boundary of the service.
- *
- * One workflow invocation = one JDBC Connection = one database transaction:
- * commit on success, rollback on any exception. Blocking JDBC runs only on
- * the named worker pool (never on an event loop) - this is the locked
- * "blocking JDBC on worker threads" decision made explicit in one place.
- *
- * Every step (task) inside a workflow receives this same Connection, which is
- * what makes wallet update + ledger entry + outbox row + idempotency claim
- * atomically inseparable.
+ * The transaction boundary: one workflow = one connection = one transaction, run on the worker pool.
+ * Every task gets the same connection, so balance, ledger, outbox and idempotency commit together.
  */
 public class Tx {
 
@@ -39,8 +31,7 @@ public class Tx {
 
     /** Runs the block in a transaction on a worker thread. */
     public <T> Uni<T> inTx(TxBlock<T> block) {
-        // ordered=false: independent requests must not serialize behind each
-        // other on the caller's context - row locks do the serializing.
+        // ordered=false: requests must not queue behind each other; row locks do the ordering.
         long submittedAt = PhaseTimings.global().now();
         return executor.executeBlocking(() -> {
             PhaseTimings.global().begin(submittedAt);
@@ -48,11 +39,7 @@ public class Tx {
         }, false);
     }
 
-    /**
-     * Synchronous variant for callers already on a worker thread (the hold
-     * sweeper runs several small transactions in one offloaded task) and for
-     * tests.
-     */
+    /** Same, but blocking: for callers already on a worker thread (hold sweeper) and tests. */
     public <T> T runBlocking(TxBlock<T> block) throws Exception {
         PhaseTimings timings = PhaseTimings.global(); // no-op unless BENCH_TIMING=true
         try {

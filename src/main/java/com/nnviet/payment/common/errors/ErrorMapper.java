@@ -6,8 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Router-wide failure handler: DomainException maps to its status/code,
- * everything else is an opaque 500 (details go to the log, not the client).
+ * Turns failures into JSON errors: a DomainException keeps its status and code, anything else is 500.
+ * Details of a 500 go to the log, not the client.
  */
 public final class ErrorMapper {
 

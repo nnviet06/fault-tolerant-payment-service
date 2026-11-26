@@ -8,11 +8,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * Settles a hold: compare-and-set its status out of ACTIVE and, if this call
- * won the race, release the reservation (held_amount -= amount). Returns
- * false when a concurrent commit/rollback/expiry settled the hold first -
- * the caller decides whether that is an error (commit: 409) or a no-op
- * (expiry sweeper).
+ * Moves a hold out of ACTIVE and, if this call won, releases its reservation.
+ * False if another settle won first; the caller decides if that is an error.
  */
 public class SettleHoldTask {
 

@@ -8,18 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Blocking JDBC access to the outbox table (relay side). */
+/** Outbox table access for the relay. */
 public class OutboxRepository {
 
     public record PendingEvent(long id, UUID eventId, String eventType, String payloadJson,
                                int attempts) {
     }
 
-    /**
-     * Claims a batch of unpublished rows. FOR UPDATE SKIP LOCKED lets a
-     * second relay instance work past rows another instance is publishing
-     * instead of blocking on them (single instance today; documented).
-     */
+    /** Locks a batch of unsent rows. SKIP LOCKED lets a second relay skip rows another is sending. */
     public List<PendingEvent> lockPending(Connection conn, int limit) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT id, event_id, event_type, payload::text AS payload, attempts "

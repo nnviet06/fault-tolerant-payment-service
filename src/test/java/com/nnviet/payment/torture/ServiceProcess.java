@@ -12,10 +12,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs the shaded jar as a REAL operating-system process, so kill scenarios
- * are genuine process deaths (Runtime.halt inside, destroyForcibly outside),
- * not simulated ones. Requires `mvn -Ptorture verify`, which packages the jar
- * first and passes its path via the torture.jar system property.
+ * Runs the shaded jar as a real process, so kill scenarios are real process deaths.
+ * Needs `mvn -Ptorture verify`, which builds the jar and passes its path in torture.jar.
  */
 public final class ServiceProcess implements AutoCloseable {
 

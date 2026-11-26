@@ -18,14 +18,8 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Commits a hold: the reserved funds actually move to the destination wallet.
- * This is the only hold operation that writes a ledger entry.
- *
- * The compare-and-set (status ACTIVE -> COMMITTED, and not yet expired) is
- * the single arbiter against a concurrent rollback or the expiry sweeper:
- * exactly one settlement ever wins. Funds are already reserved, so no
- * available-balance check is needed - the invariants guarantee
- * balance >= held_amount >= amount.
+ * Commits a hold: the reserved money moves to the destination, the only hold step with a ledger entry.
+ * The status CAS decides the race with rollback and expiry; no balance check, the money is reserved.
  */
 public class CommitHoldWorkflow {
 
@@ -57,7 +51,7 @@ public class CommitHoldWorkflow {
         if (sourceWalletId.equals(destinationWalletId)) {
             throw new ValidationException("destinationWalletId must differ from the hold's wallet");
         }
-        // same lock ordering discipline as transfers: deterministic by id
+        // lock in id order, like transfers
         if (sourceWalletId.compareTo(destinationWalletId) < 0) {
             wallets.lockById(conn, sourceWalletId);
             wallets.lockById(conn, destinationWalletId);

@@ -21,15 +21,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * HTTP surface of the ledger domain - every money movement enters here.
- * Each money-moving POST requires an Idempotency-Key header and runs as
- * IdempotencyService.execute(workflow), i.e. one database transaction
- * containing the idempotency claim, the movement, the ledger entry and the
- * outbox event.
- *
- * The request hash is built from the PARSED parameters (semantic
- * canonicalization), so the same logical request re-encoded with different
- * JSON key order still replays instead of failing as key reuse.
+ * Ledger HTTP routes; every money movement enters here, needs an Idempotency-Key, and is one transaction.
+ * Request hashes use parsed values, so the same request with reordered JSON keys still replays.
  */
 public class LedgerHandler {
 

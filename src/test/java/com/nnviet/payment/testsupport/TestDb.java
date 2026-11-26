@@ -8,12 +8,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Shared JDBC plumbing for DB-backed tests. Talks to the docker-compose
- * Postgres; tests calling available() first skip (not fail) when it is down.
- *
- * With REQUIRE_DB=true (set by CI) a missing Postgres or Redis is an error,
- * not a skip: otherwise a broken CI database would turn every DB-backed test
- * into a silent skip and the build would pass while testing nothing.
+ * JDBC helpers for DB-backed tests. Tests skip when Postgres is down, unless REQUIRE_DB=true (CI):
+ * then it fails, so CI cannot pass while testing nothing.
  */
 public final class TestDb {
 

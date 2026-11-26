@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Issue #2 experiment runner (E0-E5). One invocation = one run; raw output
-# lands in docs/benchmarks/issue-2/raw/<label>.txt.
+# Benchmark runner. One call = one run; raw output goes to docs/benchmarks/issue-2/raw/<label>.txt.
 #
 # Prereqs: docker compose up -d; mvn -q package -DskipTests;
 #          javac -d target/bench tools/LoadDriver.java
@@ -10,18 +9,13 @@
 #   tools/bench-issue2.sh sync <on|off>      # ALTER SYSTEM + reload, prints SHOW
 #   tools/bench-issue2.sh reset              # end of session: empty stores, drop E5 sequence, verify
 #
-# Every app run: TRUNCATEs all service tables + FLUSHALL Redis (dev stores are
-# disposable), starts the shaded jar, runs one LoadDriver level
-# (warmup 10 s, measure MEASURE_SEC, default 60 s), records SHOW
-# synchronous_commit before and after, stops the service.
-# pgbench runs use the same MEASURE_SEC.
+# Each app run empties Postgres and Redis, starts the jar, runs one LoadDriver level
+# (10 s warmup, MEASURE_SEC default 60 s), records synchronous_commit, stops the service.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RAW="$ROOT/docs/benchmarks/issue-2/raw"
-# JAR / JAR_REV: run a jar saved from another commit (E5 interleaves two
-# builds). JAR_REV must then name the commit that jar was built from; it is
-# what the raw file records instead of the checked-out HEAD.
+# JAR / JAR_REV: run a jar built from another commit; JAR_REV names that commit in the raw file.
 JAR="${JAR:-$ROOT/target/fault-tolerant-payment-service-0.1.0-SNAPSHOT.jar}"
 if [ -n "${JAR_REV:-}" ]; then
     REV_LINE="git: $JAR_REV (jar $(basename "$JAR"); checked out: $(git -C "$ROOT" rev-parse --short HEAD))"
@@ -38,9 +32,7 @@ mkdir -p "$RAW" "$LOGDIR"
 psql_db() { docker compose -f "$ROOT/docker-compose.yml" exec -T postgres psql -U user123 -d userdb "$@"; }
 show_sync() { psql_db -At -c "SHOW synchronous_commit"; }
 
-# Cumulative per-table autovacuum/autoanalyze counters (read-only, no config
-# change). Snapshotted at MEASURE_START and MEASURE_END; the delta says whether
-# autovacuum ran inside the measured window (its short runs are not logged).
+# Autovacuum counters at window start and end: the delta shows if autovacuum ran during it.
 av_counts() {
     psql_db -At -F' ' -c "SELECT relname, autovacuum_count, autoanalyze_count FROM pg_stat_user_tables ORDER BY relname"
 }
@@ -57,9 +49,8 @@ wait_for_line() { # $1 = pattern, $2 = file, $3 = pid that must still be alive
     done
 }
 
-# RESET_MODE=drop: drop the tables instead of truncating them, so the jar
-# about to start creates ITS schema.sql layout. Needed when interleaving jars
-# whose schemas differ (e.g. main vs per-wallet chains, #4).
+# RESET_MODE=drop: drop tables instead of truncating, so the next jar creates its own schema.
+# Needed when alternating jars with different schemas.
 reset_stores() {
     if [ "${RESET_MODE:-truncate}" = "drop" ]; then
         psql_db -q -c "DROP TABLE IF EXISTS idempotency_keys, outbox, ledger_entries, holds, wallets CASCADE" >/dev/null
@@ -139,9 +130,7 @@ run_pgbench() {
     local pre; pre="$(show_sync)"
     psql_db -q -c "DROP TABLE IF EXISTS bench_commit_control; CREATE TABLE bench_commit_control (id bigserial PRIMARY KEY, v bigint NOT NULL)"
     docker compose -f "$ROOT/docker-compose.yml" cp "$ROOT/tools/commit-control.pgbench" postgres:/tmp/commit-control.pgbench >/dev/null
-    # MSYS2_ARG_CONV_EXCL: stop Git Bash rewriting the in-container path
-    # /tmp/... into a Windows path before docker sees it (other args, like
-    # the compose file path, still need the conversion)
+    # stop Git Bash turning /tmp/... into a Windows path (the compose path still needs it)
     MSYS2_ARG_CONV_EXCL="/tmp/" docker compose -f "$ROOT/docker-compose.yml" exec -T postgres \
         pgbench -n -c 16 -j 4 -T "$MEASURE_SEC" -f /tmp/commit-control.pgbench -U user123 userdb > "$LOGDIR/$label.pgbench.txt" 2>&1 &
     local pb_pid=$!

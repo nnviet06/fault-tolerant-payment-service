@@ -18,9 +18,8 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Transfer between two wallets in one transaction. Both wallet rows are
- * locked in deterministic id order, so crossed transfers (A->B while B->A)
- * queue on the same first lock instead of deadlocking.
+ * Moves money between two wallets in one transaction.
+ * Wallets are locked in id order, so A->B and B->A queue instead of deadlocking.
  */
 public class TransferWorkflow {
 

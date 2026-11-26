@@ -4,13 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Named crash-injection points for the torture suite. When the process is
- * started with CHAOS_HALT_AT=&lt;point-name&gt;, reaching that point calls
- * Runtime.halt() - a hard kill with no shutdown hooks, equivalent to kill -9.
- *
- * In a normal run (env var unset) every point is a no-op. This class exists
- * only so that crash-window scenarios ("kill between commit and publish")
- * are reproducible on demand; it is documented in docs/technical-design.md.
+ * Crash points for the torture suite: with CHAOS_HALT_AT=&lt;point&gt;, reaching it halts like kill -9.
+ * Without the env var every point is a no-op.
  */
 public final class Chaos {
 

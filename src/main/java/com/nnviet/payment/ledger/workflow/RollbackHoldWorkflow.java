@@ -13,9 +13,8 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Rolls back a hold: releases the reservation. No ledger entry (no money
- * moved). No expiry guard: rolling back an expired-but-unswept hold releases
- * the funds exactly like the sweeper would, just with a different label.
+ * Rolls back a hold: releases the reservation, no ledger entry. Works on an overdue hold too,
+ * since it releases the money exactly like the sweeper would.
  */
 public class RollbackHoldWorkflow {
 

@@ -7,22 +7,8 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 
 /**
- * The retry-duplicate defense, wrapped around every money-moving workflow:
- *
- * 1. Redis fast path: a cached finished response is returned immediately.
- * 2. Otherwise, inside the SAME transaction as the workflow's work:
- *    - claim the key (INSERT .. ON CONFLICT DO NOTHING). A losing duplicate
- *      blocks on the unique index until the winner commits, then replays the
- *      winner's stored response.
- *    - run the work, then attach the response to the claimed row before
- *      commit. A crash anywhere pre-commit rolls back claim + work together,
- *      so a retry starts clean - there is no window where the money moved
- *      but the key is unknown, or vice versa.
- * 3. Same key with a different payload is rejected (422), never replayed.
- *
- * Failed work (e.g. insufficient funds) rolls back the claim too: only
- * successful movements are recorded for replay, and retrying a failed
- * request re-attempts it - which is safe, because it failed atomically.
+ * Runs each money workflow at most once per idempotency key; Postgres decides, Redis caches.
+ * The key is claimed in the workflow's transaction, so a crash undoes both and a retry starts clean.
  */
 public class IdempotencyService {
 
@@ -39,6 +25,10 @@ public class IdempotencyService {
         this.cache = cache;
     }
 
+    /**
+     * Replays the stored response for a repeated key; a different request under the same key is
+     * rejected (422). Failed work stores nothing, so its retry runs again.
+     */
     public Uni<IdemOutcome> execute(String idemKey, String requestHash, int successStatus,
                                     Tx.TxBlock<JsonObject> work) {
         return cache.lookup(idemKey).chain(cached -> {
@@ -53,6 +43,7 @@ public class IdempotencyService {
         });
     }
 
+    // A concurrent duplicate waits on the key's unique index until the first commits, then replays.
     private Uni<IdemOutcome> executeAgainstPostgres(String idemKey, String requestHash,
                                                     int successStatus,
                                                     Tx.TxBlock<JsonObject> work) {

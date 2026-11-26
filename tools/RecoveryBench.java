@@ -13,24 +13,12 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Standalone, JDK-only recovery-latency benchmark for the transactional outbox.
+ * Times how long a pending outbox event takes to go out after a kill -9 and restart
+ * (KillAfterCommitTortureIT, timed and repeated). JDK only, outside the Maven build.
  *
- * Metric [X]: time from service-ready-after-restart to the previously pending
- * outbox event being published, in the kill-after-commit window. This mirrors
- * KillAfterCommitTortureIT exactly, but instruments the timing and repeats it.
- *
- * Per iteration:
- *   phase 1 - start the shaded jar armed with CHAOS_HALT_AT=after-commit and the
- *             relay effectively disabled (RELAY_INTERVAL_MS huge); POST a deposit;
- *             the process hard-halts (Runtime.halt) right after the DB commit, so
- *             the outbox row is committed but unpublished.
- *   phase 2 - restart clean with RELAY_INTERVAL_MS=250; t0 = first /health==200,
- *             t1 = event sink first non-empty; X = t1 - t0.
- *
- * No production code is touched; all timing lives here. No DB truncation is needed:
- * each iteration uses its own sink file + idem key + fresh wallet, and older outbox
- * rows are already marked published, so only this iteration's row is pending on
- * restart.
+ * Per run: start with CHAOS_HALT_AT=after-commit and the relay off, deposit (process halts
+ * after commit), restart with RELAY_INTERVAL_MS=250; X = first event in sink - first /health 200.
+ * Each run uses its own sink file, key and wallet, so no truncation is needed.
  *
  *   javac -d target/bench tools/RecoveryBench.java
  *   java -cp target/bench RecoveryBench <jarPath> [iterations] [port] [relayIntervalMs]
@@ -66,9 +54,7 @@ public final class RecoveryBench {
         Path sinkDir = Path.of("target", "bench-sink");
         Files.createDirectories(sinkDir);
 
-        // Per-run nonce: the DB is not truncated between runs, so idempotency keys
-        // must be unique per run or a rerun would replay a prior run's stored
-        // response (replayed outcomes skip the chaos halt, breaking the scenario).
+        // per-run nonce: without truncation, a reused key would replay and skip the chaos halt
         String run = Long.toHexString(System.nanoTime());
         System.out.println("run nonce=" + run + "\n");
 
@@ -162,8 +148,7 @@ public final class RecoveryBench {
             if (t1 < 0) {
                 throw new IllegalStateException("event never published within 15s");
             }
-            // settle: let the relay commit markPublished before we kill it, so the
-            // row does not leak as still-pending into a later iteration.
+            // let the relay mark the row sent before the kill, so it is not pending next run
             TimeUnit.MILLISECONDS.sleep(500);
             return (t1 - t0) / 1_000_000.0;
         } finally {

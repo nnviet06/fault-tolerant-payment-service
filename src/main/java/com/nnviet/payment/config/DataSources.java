@@ -15,9 +15,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Builds the two data-access clients:
- * - HikariCP JDBC pool (blocking, used only from worker threads via Tx)
- * - Mutiny Redis client (optional at runtime: only the idempotency fast path)
+ * Builds the Postgres pool (blocking, used only through Tx) and the Redis client (cache only).
  */
 public final class DataSources {
 
@@ -34,7 +32,7 @@ public final class DataSources {
         return new HikariDataSource(hc);
     }
 
-    /** Applies src/main/resources/schema.sql (idempotent DDL) at boot. */
+    /** Runs schema.sql at boot; safe to run on every start. */
     public static void applySchema(DataSource dataSource) throws SQLException, IOException {
         String ddl;
         try (InputStream in = DataSources.class.getResourceAsStream("/schema.sql")) {

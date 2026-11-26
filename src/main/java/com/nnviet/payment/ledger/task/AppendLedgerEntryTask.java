@@ -8,9 +8,7 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Appends one hash-chained entry. Must run inside the same transaction as the
- * balance updates it records; the chain link (advisory lock + tail read) is
- * handled by LedgerRepository.
+ * Appends one ledger entry in the same transaction as the balance updates it records.
  */
 public class AppendLedgerEntryTask {
 

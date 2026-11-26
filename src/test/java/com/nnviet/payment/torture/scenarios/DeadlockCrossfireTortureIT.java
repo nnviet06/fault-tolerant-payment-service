@@ -17,10 +17,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Crossed transfers: 50x A->B racing 50x B->A. Without deterministic lock
- * ordering this deadlocks (each side holds one wallet lock and wants the
- * other); Postgres would kill victims and 500s would surface. With id-ordered
- * locking, every request resolves and the two-wallet total is conserved.
+ * 50 A->B transfers race 50 B->A. Without id-ordered locking this deadlocks and returns 500s;
+ * with it, every request finishes and the two-wallet total is unchanged.
  */
 class DeadlockCrossfireTortureIT {
 

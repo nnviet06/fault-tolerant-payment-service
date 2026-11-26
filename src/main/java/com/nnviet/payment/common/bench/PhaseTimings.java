@@ -6,20 +6,8 @@ import java.util.Arrays;
 import java.util.function.LongSupplier;
 
 /**
- * Env-gated per-phase timing of the transfer path (issue #2: locate the
- * throughput bottleneck). Measurement only - it never changes what a
- * transaction does.
- *
- * With BENCH_TIMING unset (every normal run) each call returns immediately
- * and the ThreadLocal is never touched.
- *
- * How a sample is built: a whole transaction runs on ONE db-worker thread
- * (blocking JDBC), so the timestamps of one transaction can live in a
- * per-thread array. Tx, TransferWorkflow and LedgerRepository drop marks into
- * it; after a successful commit the marks become one sample. A sample is kept
- * only when EVERY mark is set - in practice only transfers (the only path
- * that marks the wallet-lock phase), never relay/sweeper/health transactions.
- * The marks are cleared after every transaction, committed or not.
+ * Optional per-step timers for transfers, on only with BENCH_TIMING=true; never changes a transaction.
+ * A transaction runs on one worker thread, so its marks live per thread; only full samples are kept.
  */
 public final class PhaseTimings {
 
@@ -31,9 +19,7 @@ public final class PhaseTimings {
         CONN_END,     // connection in hand
         ROW_START,    // before locking the two wallet rows (FOR UPDATE)
         ROW_END,      // both wallet rows locked
-        // LOCK_*: taking the ledger chain position. Until #4: waiting for the
-        // global chain lock (pg_advisory_xact_lock). Since #4 (per-wallet
-        // chains, no global lock): reading the wallets' chain heads.
+        // LOCK_*: reading the chain heads (before per-wallet chains: waiting on the global lock)
         LOCK_START,
         LOCK_END,
         COMMIT_START, // before conn.commit()
@@ -48,8 +34,7 @@ public final class PhaseTimings {
         W_lock(Mark.LOCK_START, Mark.LOCK_END),
         H_work(Mark.LOCK_END, Mark.COMMIT_START),
         H_commit(Mark.COMMIT_START, Mark.COMMIT_END),
-        // chain position held until commit = H_work + H_commit (until #4: the
-        // global chain-lock hold; since #4: the wallet row locks' tail)
+        // chain position held until commit = H_work + H_commit
         H(Mark.LOCK_END, Mark.COMMIT_END);
 
         final Mark from;
@@ -147,8 +132,7 @@ public final class PhaseTimings {
         Arrays.fill(marks.get(), UNSET);
     }
 
-    // Synchronized: at a few hundred samples/sec the monitor is uncontended,
-    // and it runs after commit, i.e. outside the chain-lock hold being measured.
+    // Synchronized is cheap: few samples per second, and it runs after commit, outside the locks.
     private synchronized void store(long[] durations) {
         if (count >= capacity) {
             dropped++;
@@ -164,10 +148,7 @@ public final class PhaseTimings {
         resetAt = clock.getAsLong();
     }
 
-    /**
-     * Summary since the last reset: per phase mean / p50 / p95 / p99 / max in
-     * microseconds, plus the sample count and the wall-clock window length.
-     */
+    /** Per-phase mean/p50/p95/p99/max in microseconds since the last reset, with count and window. */
     public synchronized JsonObject snapshot() {
         JsonObject json = new JsonObject()
                 .put("enabled", enabled)

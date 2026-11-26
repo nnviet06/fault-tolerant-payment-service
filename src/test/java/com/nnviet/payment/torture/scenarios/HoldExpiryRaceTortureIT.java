@@ -17,11 +17,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The commit-vs-expiry race: holds with a ~2s TTL are committed at the same
- * moment the sweeper expires them. Which side wins any individual race is
- * nondeterministic BY DESIGN - the invariant under test is that every hold
- * has exactly ONE winner (the status CAS) and that money is conserved
- * whichever way each race lands.
+ * Commit vs expiry: holds with a ~2s TTL are committed as the sweeper expires them.
+ * Either side may win each race; every hold must settle exactly once and money is conserved.
  */
 class HoldExpiryRaceTortureIT {
 
@@ -54,9 +51,7 @@ class HoldExpiryRaceTortureIT {
                 holdIds.add(r.json().getJsonObject("hold").getString("id"));
             }
 
-            // aim the commit burst at the expiry boundary of the 2s TTLs and
-            // stagger individual commits across it, so both sides of the race
-            // genuinely win some (the exact split stays nondeterministic)
+            // spread commits across the 2s expiry boundary, so both sides win some races
             long sleepMs = Math.max(0, 1_900 - (System.currentTimeMillis() - firstCreateAt));
             Thread.sleep(sleepMs);
 

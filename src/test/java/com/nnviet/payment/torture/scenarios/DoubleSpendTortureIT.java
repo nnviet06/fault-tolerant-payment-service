@@ -17,9 +17,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Adversary 1: the double-spend race. 100 concurrent withdrawals against a
- * balance that only fits 10 of them. The row lock must serialize them; the
- * losers must see the true balance and be rejected; money must be conserved.
+ * Double spend: 100 concurrent withdrawals against a balance that fits 10.
+ * Exactly 10 succeed, the rest are rejected, and no money is created or lost.
  */
 class DoubleSpendTortureIT {
 

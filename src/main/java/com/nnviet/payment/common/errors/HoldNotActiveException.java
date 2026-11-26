@@ -3,9 +3,7 @@ package com.nnviet.payment.common.errors;
 import java.util.UUID;
 
 /**
- * The hold's compare-and-set transition found no ACTIVE row: the hold was
- * already committed/rolled back/expired, has passed its TTL, or never existed.
- * 409 because the request conflicts with the hold's current state.
+ * No ACTIVE hold to settle: already settled, past its TTL, or never existed (409).
  */
 public class HoldNotActiveException extends DomainException {
 

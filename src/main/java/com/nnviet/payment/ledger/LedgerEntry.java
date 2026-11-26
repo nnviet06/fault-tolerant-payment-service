@@ -5,14 +5,8 @@ import io.vertx.core.json.JsonObject;
 import java.util.UUID;
 
 /**
- * Row mirror of the append-only ledger_entries table. One row is one balanced
- * movement: it carries both the debit side and the credit side, so a partial
- * (unbalanced) movement cannot exist. A NULL side means the external world.
- *
- * Each present side is also one link of that wallet's hash chain:
- * {@code <side>WalletSeq} is the link's position in the wallet's chain and
- * {@code <side>PrevHash} the entry_hash of the wallet's previous link. An
- * absent side has all three fields null. {@code seq} is only a row id.
+ * One ledger row = one balanced movement: debit and credit sides on one row, so it cannot be half
+ * written. A NULL side is the outside world; each other side is a link in that wallet's hash chain.
  */
 public record LedgerEntry(
         long seq,

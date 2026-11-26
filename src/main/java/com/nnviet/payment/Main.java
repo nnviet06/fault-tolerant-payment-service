@@ -4,7 +4,7 @@ import io.vertx.mutiny.core.Vertx;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Entrypoint: create the Vert.x instance and deploy the single verticle. */
+/** Entry point: starts Vert.x and deploys MainVerticle. */
 public final class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);

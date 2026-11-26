@@ -5,9 +5,7 @@ import io.vertx.core.json.JsonObject;
 import java.util.UUID;
 
 /**
- * The event envelope handed to publishers. eventId is the consumer-side
- * deduplication key: delivery is at-least-once, so consumers must treat a
- * repeated eventId as already processed.
+ * Event sent to publishers. Delivery is at-least-once, so consumers dedup by eventId.
  */
 public record OutboxEvent(UUID eventId, String eventType, JsonObject payload) {
 

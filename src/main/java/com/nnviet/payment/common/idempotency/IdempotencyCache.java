@@ -10,16 +10,14 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Redis fast path in front of the Postgres idempotency store. Strictly an
- * optimization: entries are immutable finished responses, every failure or
- * timeout degrades to a cache miss, and the Postgres path alone upholds the
- * exactly-once guarantee (proven by the redis-blackout torture scenario).
+ * Redis cache of finished responses in front of Postgres. Any Redis failure is a cache miss;
+ * correctness never depends on it (the Redis blackout torture scenario proves this).
  */
 public class IdempotencyCache {
 
     private static final Logger log = LoggerFactory.getLogger(IdempotencyCache.class);
 
-    /** An unreachable Redis must cost at most this much latency, then we fall through to Postgres. */
+    /** Longest wait on an unreachable Redis before falling through to Postgres. */
     private static final Duration LOOKUP_TIMEOUT = Duration.ofMillis(250);
 
     private final RedisAPI redis;
@@ -44,7 +42,7 @@ public class IdempotencyCache {
                 });
     }
 
-    /** Best-effort, fire-and-forget: a failed store only costs a future cache miss. */
+    /** Fire-and-forget: a failed store only costs a later cache miss. */
     public void store(String idemKey, String requestHash, int status, JsonObject body) {
         String value = new JsonObject()
                 .put("h", requestHash)

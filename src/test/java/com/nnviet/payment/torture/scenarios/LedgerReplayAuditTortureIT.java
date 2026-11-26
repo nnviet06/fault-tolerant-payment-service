@@ -17,10 +17,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Capstone audit: after a mixed workload (deposits, withdrawals, transfers,
- * holds that commit / roll back / expire), every wallet balance must be
- * reproducible from the append-only ledger alone, and the global money
- * equation must hold: sum(balances) = deposits - withdrawals.
+ * After a mixed workload, every balance must be rebuilt from the ledger alone,
+ * and sum(balances) = deposits - withdrawals.
  */
 class LedgerReplayAuditTortureIT {
 

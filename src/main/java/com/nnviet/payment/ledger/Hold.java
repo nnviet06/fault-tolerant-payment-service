@@ -6,9 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Row mirror of the holds table. A hold is a reservation, not a movement:
- * it raises the wallet's held_amount and writes no ledger entry. Only a
- * commit moves money (and that movement is the ledger entry).
+ * One holds row. A hold reserves money without moving it, so only its commit writes a ledger entry.
  */
 public record Hold(UUID id, UUID walletId, long amount, String status, Instant expiresAt) {
 

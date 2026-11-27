@@ -9,21 +9,17 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 /**
- * Durable idempotency store (the correctness authority - Redis only caches
- * what this table committed).
- *
- * claim() relies on Postgres unique-index arbitration: when two duplicates
- * race, the second INSERT blocks until the first transaction commits or
- * aborts. Committed first -> the second sees the conflict and replays the
- * stored response. Aborted first -> the second's claim succeeds and it runs
- * the work itself.
+ * Postgres idempotency store, the source of truth; Redis only caches what this table committed.
  */
 public class IdempotencyRepository {
 
     public record StoredResponse(String requestHash, Integer status, JsonObject body) {
     }
 
-    /** Returns true when this transaction claimed the key (i.e. must run the work). */
+    /**
+     * True if this transaction claimed the key and must run the work. A racing duplicate waits on
+     * the unique index: if the first commits it sees the conflict, if the first aborts it claims.
+     */
     public boolean claim(Connection conn, String idemKey, String requestHash)
             throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
@@ -53,10 +49,7 @@ public class IdempotencyRepository {
         }
     }
 
-    /**
-     * Attaches the response to the claimed row BEFORE the same transaction
-     * commits, so a committed key row always carries its response.
-     */
+    /** Stores the response before commit, so a committed key always has its response. */
     public void storeResponse(Connection conn, String idemKey, int status, JsonObject body)
             throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(

@@ -10,8 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Blocking JDBC access to the wallets table. All methods run inside a Tx
- * transaction on a worker thread and share the caller's Connection.
+ * Wallets table access; every method runs inside the caller's Tx connection.
  */
 public class WalletRepository {
 
@@ -37,9 +36,7 @@ public class WalletRepository {
     }
 
     /**
-     * SELECT ... FOR UPDATE: takes the row lock that serializes all concurrent
-     * movements on this wallet until the transaction commits or rolls back.
-     * This is the double-spend defense.
+     * Locks the wallet row (FOR UPDATE) until the transaction ends: the double-spend defense.
      */
     public Wallet lockById(Connection conn, UUID id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(SELECT + " FOR UPDATE")) {
@@ -49,9 +46,7 @@ public class WalletRepository {
     }
 
     /**
-     * Applies balance/held deltas to a row the caller has already locked.
-     * The schema CHECK constraints reject any delta that would break
-     * balance >= held_amount >= 0, no matter what the caller validated.
+     * Adds the deltas to a row the caller locked. The schema still rejects balance < held or < 0.
      */
     public void applyDeltas(Connection conn, UUID id, long balanceDelta, long heldDelta)
             throws SQLException {

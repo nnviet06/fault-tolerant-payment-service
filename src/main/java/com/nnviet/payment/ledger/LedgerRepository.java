@@ -20,19 +20,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Blocking JDBC access to the append-only ledger. Owns the hash chains.
- *
- * Chains are PER WALLET (issue #4). Every entry is the next link of the chain
- * of each wallet it touches: it records the wallet's position and the
- * entry_hash of that wallet's previous link, and its own entry_hash covers
- * all of it. A transfer is therefore a link in two chains at once, and editing
- * any hashed column breaks every chain the row belongs to.
- *
- * Ordering without a global lock: a wallet's chain only grows while its row
- * is locked (every money workflow locks its wallets, in id order, before
- * appending), so two movements on disjoint wallets append in parallel. The
- * wallet row stores the chain head; advancing it is a compare-and-set, so an
- * append that somehow ran without the lock fails instead of forking a chain.
+ * Append-only ledger. Each wallet has its own hash chain, so a transfer is a link in two chains.
+ * A chain only grows under its wallet's row lock, so different wallets append in parallel.
  */
 public class LedgerRepository {
 
@@ -47,6 +36,7 @@ public class LedgerRepository {
     private record Head(long seq, String hash) {
     }
 
+    /** Adds the entry as the next link of each wallet's chain. Caller must hold those row locks. */
     public LedgerEntry append(Connection conn, String entryType, UUID debitWalletId,
                               UUID creditWalletId, long amount, UUID holdId,
                               String idempotencyKey) throws SQLException {
@@ -54,7 +44,6 @@ public class LedgerRepository {
             // workflows reject this earlier; the schema CHECK backs it up
             throw new IllegalStateException("a ledger entry cannot debit and credit the same wallet");
         }
-        // W_lock in PhaseTimings: before #4 the global chain-lock wait, now the head read
         PhaseTimings.global().mark(Mark.LOCK_START); // no-op unless BENCH_TIMING=true
         Map<UUID, Head> heads = readHeads(conn, debitWalletId, creditWalletId);
         PhaseTimings.global().mark(Mark.LOCK_END);
@@ -113,12 +102,8 @@ public class LedgerRepository {
     }
 
     /**
-     * Walks every wallet's chain and checks: positions run 1..n with no gap,
-     * each link's prev hash equals the previous link's entry_hash, every
-     * entry_hash recomputes, and the last link matches the head stored on the
-     * wallet row. Every row has at least one wallet side, so every row is
-     * checked. Must be the first statement of its transaction: it pins one
-     * REPEATABLE READ snapshot so concurrent appends cannot cause false alarms.
+     * Checks every wallet chain: no position gaps, prev hashes link, hashes recompute, head matches.
+     * Must be the first statement of its transaction, so concurrent appends cannot cause false alarms.
      */
     public ChainVerification verifyChain(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
@@ -264,11 +249,8 @@ public class LedgerRepository {
     }
 
     /**
-     * Compare-and-set of a wallet's chain head. Under the caller's row lock it
-     * always succeeds; if the head moved anyway (an append without the lock),
-     * it fails the whole transaction instead of letting the chain fork. This
-     * CAS is what stops two links taking the same position of one wallet - the
-     * unique indexes only cover one side (debit or credit) each.
+     * Compare-and-set of the wallet's chain head; fails the transaction instead of forking the chain.
+     * This, not the one-sided unique indexes, stops two links taking the same position.
      */
     private static void advanceHead(Connection conn, UUID walletId, long expectedSeq,
                                     long newSeq, String newHash) throws SQLException {
@@ -324,10 +306,8 @@ public class LedgerRepository {
     }
 
     /**
-     * Canonical hash input. Only stored, immutable columns participate, so
-     * verification can recompute the exact same string from the database.
-     * seq (the row id) is deliberately excluded: the proof is the per-wallet
-     * position plus prev hash, not the row id.
+     * Hash input built only from stored, unchanging columns, so verify can rebuild it from the DB.
+     * seq (the row id) is left out on purpose: the proof is each wallet's position and prev hash.
      */
     private static String canonical(String entryType,
                                     UUID debit, Long debitSeq, String debitPrev,

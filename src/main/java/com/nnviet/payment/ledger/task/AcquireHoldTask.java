@@ -10,9 +10,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
- * Reserves funds on a locked wallet: raises held_amount and inserts the
- * ACTIVE hold row in the same transaction. No ledger entry - a reservation
- * is not a movement.
+ * Reserves money on a locked wallet: raises held_amount and inserts an ACTIVE hold. No ledger entry.
  */
 public class AcquireHoldTask {
 

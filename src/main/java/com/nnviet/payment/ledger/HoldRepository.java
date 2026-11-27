@@ -11,9 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Blocking JDBC access to holds. All expiry decisions use the DATABASE clock
- * (now()): insert, commit-guard and sweeper share one clock authority, so an
- * app/database clock skew cannot make them disagree.
+ * Holds table access. Every expiry check uses the database clock, so app clock skew cannot split them.
  */
 public class HoldRepository {
 
@@ -64,9 +62,7 @@ public class HoldRepository {
     }
 
     /**
-     * The atomic compare-and-set that gives every hold exactly one settlement:
-     * only a row still in ACTIVE (and passing the expiry guard) is updated.
-     * Returns false when another settlement won the race.
+     * Compare-and-set out of ACTIVE, so every hold settles exactly once. False if another settle won.
      */
     public boolean transitionFromActive(Connection conn, UUID id, String toStatus,
                                         ExpiryGuard guard) throws SQLException {

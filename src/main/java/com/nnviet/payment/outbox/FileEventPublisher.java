@@ -10,9 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
 /**
- * JSON-lines sink used by the torture suite: one event envelope per line.
- * The suite reads the file back and deduplicates by eventId to prove
- * "at-least-once delivery + consumer dedup = effectively once".
+ * Writes one event per line to a file. The torture suite reads it back and dedups by eventId.
  */
 public class FileEventPublisher implements EventPublisher {
 

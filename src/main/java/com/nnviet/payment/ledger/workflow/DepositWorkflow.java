@@ -14,8 +14,7 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Deposit: money enters from the external world (NULL debit side).
- * One transaction: lock wallet -> credit -> ledger entry -> outbox event.
+ * Deposit: money enters from outside (NULL debit side). Lock, credit, ledger entry, outbox event.
  */
 public class DepositWorkflow {
 

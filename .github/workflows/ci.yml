@@ -1,7 +1,5 @@
-# Issue #1: every push and every PR into main runs the unit tests and all 9
-# torture scenarios against the same Postgres + Redis the project uses locally
-# (docker-compose.yml). REQUIRE_DB=true turns a missing database or Redis into
-# a failure, so the build can never pass by silently skipping tests.
+# Every push and PR into main runs unit tests and all 9 torture scenarios on docker-compose.yml.
+# REQUIRE_DB=true makes a missing Postgres or Redis fail, so skipped tests cannot pass the build.
 name: CI
 
 on:
@@ -13,7 +11,7 @@ on:
 permissions:
   contents: read
 
-# a newer push to the same branch cancels the older, now-irrelevant run
+# a newer push to the same branch cancels the older run
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

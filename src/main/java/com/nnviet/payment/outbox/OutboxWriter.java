@@ -9,12 +9,8 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * The write side of the transactional outbox - the crash-dual-write defense.
- *
- * write() inserts on the CALLER'S Connection, i.e. inside the same database
- * transaction as the ledger entry it describes. Either both commit or both
- * roll back; "money moved but the event is lost" and "event exists for a
- * movement that never happened" are unrepresentable states.
+ * Inserts the event in the caller's transaction, so the event and the movement commit together.
+ * No movement without its event, no event without its movement.
  */
 public class OutboxWriter {
 

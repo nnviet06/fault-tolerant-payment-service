@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Issue #2: aggregate the raw run files written by tools/bench-issue2.sh into
-the markdown tables used in docs/benchmark-report.md. Every number in the
-report's issue-2 section is reproducible with:
+"""Turns the raw run files from tools/bench-issue2.sh into the tables in
+docs/benchmark-report.md. Reproduce them with:
 
     python tools/bench-issue2-summary.py docs/benchmarks/issue-2/raw
 

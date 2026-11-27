@@ -1,9 +1,7 @@
 package com.nnviet.payment.common.errors;
 
 /**
- * The same Idempotency-Key arrived with a different request payload.
- * Replaying the stored response would be wrong (it belongs to another
- * request), so this is surfaced as a client error instead.
+ * Same Idempotency-Key with a different request; replaying would return another request's response.
  */
 public class IdempotencyKeyReuseException extends DomainException {
 

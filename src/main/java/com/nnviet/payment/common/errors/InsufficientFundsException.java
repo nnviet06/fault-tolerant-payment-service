@@ -1,8 +1,7 @@
 package com.nnviet.payment.common.errors;
 
 /**
- * Available balance (balance - held_amount) is lower than the requested amount.
- * Thrown after the wallet row is locked, so the check is race-free.
+ * Available balance (balance - held) is below the amount. Checked under the row lock, so no race.
  */
 public class InsufficientFundsException extends DomainException {
 

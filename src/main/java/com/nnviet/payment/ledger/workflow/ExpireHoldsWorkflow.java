@@ -19,13 +19,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * TTL sweeper: periodically expires ACTIVE holds whose deadline passed.
- *
- * Each hold is settled in its OWN small transaction, so the sweeper never
- * holds more than one wallet lock at a time and cannot deadlock with
- * transfers/commits (which lock two wallets in id order). Losing the
- * compare-and-set to a concurrent commit is a silent no-op - that race
- * having exactly one winner is the commit-vs-expiry torture scenario.
+ * Sweeper that expires overdue holds, one transaction per hold, so it never holds two wallet locks
+ * and cannot deadlock with transfers. Losing the CAS to a commit is a no-op.
  */
 public class ExpireHoldsWorkflow {
 
@@ -95,7 +90,7 @@ public class ExpireHoldsWorkflow {
         boolean won = settleHold.settle(conn, hold, Hold.EXPIRED,
                 HoldRepository.ExpiryGuard.MUST_BE_EXPIRED);
         if (!won) {
-            return 0; // a commit or rollback settled it first - their win is legitimate
+            return 0; // a commit or rollback settled it first
         }
         outbox.write(conn, "hold.expired", new JsonObject()
                 .put("holdId", hold.id().toString())

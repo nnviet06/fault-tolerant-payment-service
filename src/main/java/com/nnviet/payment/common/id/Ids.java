@@ -2,11 +2,7 @@ package com.nnviet.payment.common.id;
 
 import java.util.UUID;
 
-/**
- * Single place where identifiers are minted. Random UUIDs are fine here:
- * ordering never comes from ids (ledger ordering is the seq column,
- * outbox ordering is BIGSERIAL).
- */
+/** Mints every id. Random UUIDs are fine: no data is sorted by id. */
 public final class Ids {
 
     private Ids() {

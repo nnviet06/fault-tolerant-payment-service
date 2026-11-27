@@ -9,8 +9,7 @@ import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 /**
- * Wallet identity and balance reads. This service never moves money -
- * every movement goes through a ledger workflow.
+ * Creates and reads wallets. Never moves money; that is the ledger workflows' job.
  */
 public class WalletService {
 

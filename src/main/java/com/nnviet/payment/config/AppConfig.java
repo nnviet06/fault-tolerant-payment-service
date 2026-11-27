@@ -1,8 +1,7 @@
 package com.nnviet.payment.config;
 
 /**
- * Typed environment configuration. Defaults match docker-compose.yml so
- * `docker compose up -d && java -jar ...` works with zero configuration.
+ * Settings read from env vars. Defaults match docker-compose.yml, so the app runs with no setup.
  */
 public record AppConfig(
         String dbHost,

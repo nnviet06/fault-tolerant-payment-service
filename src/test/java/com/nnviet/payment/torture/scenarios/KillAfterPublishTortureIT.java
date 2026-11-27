@@ -18,11 +18,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Adversary 3, second window: the process dies AFTER handing the event to the
- * publisher but BEFORE marking it published. The mark rolls back, so the
- * restarted relay publishes the same event again: the sink shows the raw
- * duplicate (at-least-once is real, not claimed away), and deduplication by
- * event_id reduces it to exactly one distinct event.
+ * Kill -9 after publishing an event but before marking it sent. After restart it is sent again:
+ * the sink shows the duplicate, and dedup by event_id leaves exactly one.
  */
 class KillAfterPublishTortureIT {
 

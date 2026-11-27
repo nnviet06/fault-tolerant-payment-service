@@ -170,9 +170,7 @@ class LedgerRepositoryTest {
     }
 
     /**
-     * The documented limit: the head lives in the same database, so someone
-     * who can delete the newest link AND rewind the wallet's head is not
-     * detected. Tamper evidence, not tamper proofing.
+     * Known limit: deleting the newest link AND rewinding the wallet's head is not detected.
      */
     @Test
     void deletingTheNewestLinkAndRewindingTheHeadIsNotDetected() throws Exception {
@@ -209,9 +207,8 @@ class LedgerRepositoryTest {
     }
 
     /**
-     * Two appends on the same wallet without the wallet row lock, on DIFFERENT
-     * sides (credit, then debit): the unique indexes cannot see the clash, so
-     * the compare-and-set on wallets.chain_seq must reject the second one.
+     * Two unlocked appends to one wallet on different sides: the unique indexes miss the clash,
+     * so the chain-head CAS must reject the second.
      */
     @Test
     void compareAndSetRejectsAnAppendThatSkippedTheWalletLock() throws Exception {

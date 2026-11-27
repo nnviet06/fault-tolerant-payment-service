@@ -39,18 +39,13 @@ public final class TortureHarness {
 
     // ---------- lifecycle ----------
 
-    /**
-     * Skips (not fails) the scenario when the docker-compose Postgres is down;
-     * with REQUIRE_DB=true (CI) a missing Postgres or Redis fails it instead.
-     */
+    /** Skips the scenario when Postgres is down; with REQUIRE_DB=true (CI) it fails instead. */
     public static void requireInfrastructure() throws Exception {
         Assumptions.assumeTrue(TestDb.available(), TestDb.SKIP_MESSAGE);
         TestDb.ensureSchema();
         TestDb.truncateAll();
-        // Postgres AND Redis must both start clean: a stale idempotency cache
-        // from a previous run would (correctly) reject recycled scenario keys
-        // as key reuse. Best-effort locally - a down Redis simply means no
-        // cache - but an error under REQUIRE_DB=true (CI must test with Redis).
+        // Reset Postgres AND Redis: a stale cache would reject reused scenario keys as key reuse.
+        // A down Redis is fine locally (nothing cached) but an error under REQUIRE_DB=true.
         flushRedis();
     }
 
@@ -137,10 +132,7 @@ public final class TortureHarness {
 
     // ---------- concurrency ----------
 
-    /**
-     * Runs n tasks with a start latch so they hit the service as one burst.
-     * Exceptions are surfaced, not swallowed.
-     */
+    /** Starts n tasks at once so they hit the service as one burst; exceptions are rethrown. */
     public static <T> List<T> runConcurrently(int n, IntFunction<Callable<T>> taskFactory)
             throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(n);

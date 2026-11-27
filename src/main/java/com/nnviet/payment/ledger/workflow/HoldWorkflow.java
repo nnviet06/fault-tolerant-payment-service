@@ -13,8 +13,7 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Creates a hold: reserves funds (held_amount += amount) with a TTL.
- * No ledger entry - a reservation is not a movement; the commit is.
+ * Creates a hold: reserves money with a TTL. No ledger entry; only the commit moves money.
  */
 public class HoldWorkflow {
 

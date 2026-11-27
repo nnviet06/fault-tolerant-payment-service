@@ -14,10 +14,8 @@ import java.sql.SQLException;
 import java.util.UUID;
 
 /**
- * Withdrawal: money leaves to the external world (NULL credit side).
- * One transaction: lock wallet -> validate available -> debit -> ledger entry
- * -> outbox event. The row lock makes validate-then-debit race-free; the
- * schema CHECK (balance >= 0) backs it up if code ever regresses.
+ * Withdrawal: money leaves to outside (NULL credit side). Lock, check, debit, ledger entry, outbox.
+ * The row lock keeps check-then-debit race-free; the schema's balance >= 0 check backs it up.
  */
 public class WithdrawWorkflow {
 

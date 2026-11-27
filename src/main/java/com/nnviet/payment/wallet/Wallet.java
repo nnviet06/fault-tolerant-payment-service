@@ -5,8 +5,7 @@ import io.vertx.core.json.JsonObject;
 import java.util.UUID;
 
 /**
- * Row mirror of the wallets table. balance is the total owned; heldAmount is
- * the portion reserved by active holds; available is what movements may spend.
+ * One wallets row. balance = total owned, heldAmount = reserved by holds, available = spendable.
  */
 public record Wallet(UUID id, String ownerName, long balance, long heldAmount) {
 

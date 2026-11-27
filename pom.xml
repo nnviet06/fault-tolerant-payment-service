@@ -54,16 +54,14 @@
       <version>${mutiny.vertx.version}</version>
     </dependency>
 
-    <!-- Redis client with Mutiny binding: idempotency fast-path cache only.
-         Correctness lives in Postgres; Redis is optional at runtime. -->
+    <!-- Redis client: idempotency cache only; correctness lives in Postgres -->
     <dependency>
       <groupId>io.smallrye.reactive</groupId>
       <artifactId>smallrye-mutiny-vertx-redis-client</artifactId>
       <version>${mutiny.vertx.version}</version>
     </dependency>
 
-    <!-- DB access is deliberately blocking JDBC on worker threads (locked decision).
-         No reactive pg-client. -->
+    <!-- Blocking JDBC on worker threads, on purpose: no reactive pg-client -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
@@ -96,14 +94,12 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
       </plugin>
-      <!-- Unit tests only (*Test). Torture scenarios are *TortureIT, run by failsafe
-           under the `torture` profile. -->
+      <!-- Unit tests (*Test) only; *TortureIT runs under the torture profile -->
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.3.0</version>
       </plugin>
-      <!-- Runnable fat jar: needed by `java -jar` and by the torture suite, which
-           launches/kills the service as a real OS process. -->
+      <!-- Runnable fat jar, also launched and killed as a real process by the torture suite -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -141,9 +137,8 @@
   </build>
 
   <profiles>
-    <!-- Torture suite: mvn -Ptorture verify (requires `docker compose up -d`).
-         Runs after `package` so the shaded jar exists for process-kill scenarios.
-         Report: target/torture-report.md -->
+    <!-- Torture suite: mvn -Ptorture verify (needs docker compose up). Runs after package,
+         so the jar exists. Report: target/torture-report.md -->
     <profile>
       <id>torture</id>
       <build>

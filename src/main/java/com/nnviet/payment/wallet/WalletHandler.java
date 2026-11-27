@@ -8,9 +8,8 @@ import io.vertx.mutiny.ext.web.RoutingContext;
 import java.util.UUID;
 
 /**
- * HTTP surface of the wallet domain. Wallet creation deliberately requires no
- * Idempotency-Key: no money moves, so an accidental duplicate is a harmless
- * empty wallet, not a correctness problem.
+ * Wallet HTTP routes. Creating a wallet needs no Idempotency-Key: no money moves,
+ * so a duplicate is just an empty wallet.
  */
 public class WalletHandler {
 

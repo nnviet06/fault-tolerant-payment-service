@@ -3,23 +3,15 @@ package com.nnviet.payment.common;
 import com.nnviet.payment.common.errors.ValidationException;
 
 /**
- * Money is a long count of minor units, end to end. This class is the single
- * gate through which request amounts enter the system: it rejects anything
- * that is not a positive JSON integer (doubles, strings, nulls, zero,
- * negatives) and provides overflow-safe arithmetic.
- *
- * There is deliberately no double/float/BigDecimal anywhere near money.
+ * Money is a long count of minor units. Every request amount enters through here:
+ * only positive JSON integers pass. No double, float or BigDecimal anywhere near money.
  */
 public final class Money {
 
     private Money() {
     }
 
-    /**
-     * Validates a raw JSON value as an amount. Vert.x parses JSON integrals as
-     * Integer/Long and anything fractional as Double, so an instanceof check
-     * is a strict "integer minor units only" filter.
-     */
+    /** Vert.x parses whole numbers as Integer/Long and fractions as Double, so instanceof is enough. */
     public static long requireAmount(Object jsonValue) {
         if (jsonValue == null) {
             throw new ValidationException("amount is required");

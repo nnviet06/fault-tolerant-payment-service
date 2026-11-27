@@ -19,12 +19,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Adversary 3, first window: the process is hard-killed (Runtime.halt, no
- * shutdown hooks) right AFTER the money transaction committed and BEFORE any
- * event was published or a response sent. The outbox row committed atomically
- * with the ledger entry, so after a clean restart the relay must deliver the
- * event - nothing is lost - and the client's retry must replay the stored
- * response instead of double-applying.
+ * Kill -9 right after the money transaction commits, before any event or response goes out.
+ * After restart the relay must deliver the event, and the client's retry must replay, not re-apply.
  */
 class KillAfterCommitTortureIT {
 
@@ -40,8 +36,7 @@ class KillAfterCommitTortureIT {
         Files.deleteIfExists(sink);
         try {
             String wallet;
-            // phase 1: service armed to halt after the workflow's commit;
-            // relay effectively disabled so the crash window stays open
+            // phase 1: halt after commit; relay effectively off so the event stays pending
             try (ServiceProcess armed = ServiceProcess.start(PORT, Map.of(
                     "CHAOS_HALT_AT", "after-commit",
                     "PUBLISHER", "file",

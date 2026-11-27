@@ -16,10 +16,8 @@ import static com.nnviet.payment.torture.TortureHarness.check;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tamper evidence: a financial field is edited directly in SQL, bypassing the
- * application entirely. The hash chain must detect it at the exact row.
- * seq is a row id from an identity column (not reset by the harness's
- * TRUNCATE), so the target is located as "the 3rd entry", not a literal seq.
+ * An amount is edited directly in SQL; the hash chain must point to that exact row.
+ * seq is not reset by TRUNCATE, so the target is "the 3rd entry", not a fixed seq.
  */
 class TamperEvidenceTortureIT {
 

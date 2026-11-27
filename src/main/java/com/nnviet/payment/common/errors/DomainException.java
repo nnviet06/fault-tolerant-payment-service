@@ -1,9 +1,7 @@
 package com.nnviet.payment.common.errors;
 
 /**
- * Base class for expected domain failures. Carries a machine-readable code
- * and the HTTP status it maps to, so ErrorMapper needs no instanceof ladder.
- * Domain code never throws bare RuntimeException.
+ * Base of every expected domain failure; carries its error code and HTTP status for ErrorMapper.
  */
 public class DomainException extends RuntimeException {
 
